@@ -84,12 +84,28 @@ export const TemplatePreviewRow: React.FC = () => {
                   {
                     borderRadius: theme.radius.m,
                     marginBottom: theme.spacing(3),
+                    backgroundColor: template.layout.canvas.background.value,
+                    overflow: 'hidden',
                   },
                 ]}
               >
-                <Text style={{ color: theme.colors.textSecondary }}>
-                  Preview
-                </Text>
+                {template.layout.frames.map((frame) => (
+                  <View
+                    key={frame.id}
+                    style={{
+                      position: 'absolute',
+                      left: (frame.position.x / template.layout.canvas.width) * 100 + '%',
+                      top: (frame.position.y / template.layout.canvas.height) * 100 + '%',
+                      width: (frame.size.width / template.layout.canvas.width) * 100 + '%',
+                      height: (frame.size.height / template.layout.canvas.height) * 100 + '%',
+                      borderWidth: 2,
+                      borderColor: 'rgba(155, 127, 255, 0.6)',
+                      borderRadius: 6,
+                      backgroundColor: 'rgba(155, 127, 255, 0.1)',
+                      transform: [{ rotate: `${frame.rotation}rad` }],
+                    }}
+                  />
+                ))}
               </View>
               <Text
                 style={[
