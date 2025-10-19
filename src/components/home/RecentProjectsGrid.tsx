@@ -59,21 +59,7 @@ export const RecentProjectsGrid: React.FC<RecentProjectsGridProps> = ({
   );
 
   if (!projects.length) {
-    return (
-      <View
-        style={[
-          styles.emptyState,
-          {
-            paddingHorizontal: theme.spacing(6),
-            paddingVertical: theme.spacing(12),
-          },
-        ]}
-      >
-        <Text style={{ color: theme.colors.textSecondary }}>
-          Create your first collage to see it here.
-        </Text>
-      </View>
-    );
+    return null;
   }
 
   return (
