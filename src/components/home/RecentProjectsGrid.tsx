@@ -8,10 +8,12 @@ import type { CollageProject } from '../../types/projects';
 
 interface RecentProjectsGridProps {
   projects: CollageProject[];
+  onEditPress?: () => void;
 }
 
 export const RecentProjectsGrid: React.FC<RecentProjectsGridProps> = ({
   projects,
+  onEditPress,
 }) => {
   const theme = useTheme();
   const navigation = useNavigation();
@@ -64,7 +66,10 @@ export const RecentProjectsGrid: React.FC<RecentProjectsGridProps> = ({
 
   return (
     <View style={{ paddingVertical: theme.spacing(4) }}>
-      <View style={{ paddingHorizontal: theme.spacing(5), marginBottom: theme.spacing(3) }}>
+      <View style={[
+        styles.headerContainer,
+        { paddingHorizontal: theme.spacing(5), marginBottom: theme.spacing(3) }
+      ]}>
         <Text
           style={[
             styles.header,
@@ -73,6 +78,13 @@ export const RecentProjectsGrid: React.FC<RecentProjectsGridProps> = ({
         >
           Your Projects
         </Text>
+        {onEditPress && (
+          <TouchableOpacity onPress={onEditPress} style={styles.editButton}>
+            <Text style={[styles.editText, { color: theme.colors.primary }]}>
+              Edit
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
       <FlatList
         data={projects}
@@ -102,9 +114,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   header: {
     fontSize: 28,
     fontWeight: '700',
+  },
+  editButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  editText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',

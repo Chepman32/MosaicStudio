@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
@@ -6,11 +6,15 @@ import { useTheme } from '../../theme/ThemeContext';
 import { QuickActionRow } from '../../components/home/QuickActionRow';
 import { RecentProjectsGrid } from '../../components/home/RecentProjectsGrid';
 import { TemplatePreviewRow } from '../../components/home/TemplatePreviewRow';
+import { ProjectsEditModal } from '../../components/overlays/ProjectsEditModal';
 import { useProjectStore } from '../../stores/useProjectStore';
 
 export const HomeScreen: React.FC = () => {
   const theme = useTheme();
   const projectMap = useProjectStore((state) => state.projects);
+  const removeProject = useProjectStore((state) => state.removeProject);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
   const projects = React.useMemo(
     () => Object.values(projectMap).sort((a, b) => b.modifiedAt - a.modifiedAt),
     [projectMap],
@@ -45,9 +49,19 @@ export const HomeScreen: React.FC = () => {
         }}
       >
         <QuickActionRow />
-        <RecentProjectsGrid projects={projects} />
+        <RecentProjectsGrid
+          projects={projects}
+          onEditPress={() => setIsEditModalOpen(true)}
+        />
         <TemplatePreviewRow />
       </ScrollView>
+
+      <ProjectsEditModal
+        isVisible={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        projects={projects}
+        onDeleteProject={removeProject}
+      />
     </View>
   );
 };
