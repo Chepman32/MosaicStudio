@@ -7,95 +7,126 @@ export const TEMPLATE_CATEGORIES = [
   'premium',
 ] as const;
 
+const GAP = 16;
+const CANVAS_SIZE = 2048;
+
 export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
+  // Layout 1: 2 vertical columns
   {
-    id: 'grid-2x2',
-    name: 'Classic 2x2',
+    id: 'grid-2-col',
+    name: '2 Columns',
     category: 'grid',
     isPremium: false,
     layout: {
-      canvas: {
-        width: 2048,
-        height: 2048,
-        background: {
-          type: 'color',
-          value: '#F5F5F7',
-        },
-      },
-      frames: Array.from({ length: 4 }).map((_, index) => {
-        const row = Math.floor(index / 2);
-        const col = index % 2;
-        return {
-          id: `frame-${index}`,
-          position: { x: col * 1024, y: row * 1024 },
-          size: { width: 1024, height: 1024 },
-          rotation: 0,
-          zIndex: index,
-        };
-      }),
-    },
-  },
-  {
-    id: 'freeform-flow',
-    name: 'Freeform Flow',
-    category: 'freeform',
-    isPremium: false,
-    layout: {
-      canvas: {
-        width: 2048,
-        height: 2048,
-        background: {
-          type: 'color',
-          value: '#F5F5F7',
-        },
-      },
+      canvas: { width: CANVAS_SIZE, height: CANVAS_SIZE, background: { type: 'color', value: '#FFFFFF' } },
       frames: [
-        {
-          id: 'frame-1',
-          position: { x: 200, y: 300 },
-          size: { width: 900, height: 1100 },
-          rotation: -0.05,
-          zIndex: 1,
-        },
-        {
-          id: 'frame-2',
-          position: { x: 950, y: 400 },
-          size: { width: 900, height: 900 },
-          rotation: 0.08,
-          zIndex: 2,
-        },
+        { id: 'frame-0', position: { x: 0, y: 0 }, size: { width: 1008, height: 2048 }, rotation: 0, zIndex: 0 },
+        { id: 'frame-1', position: { x: 1024, y: 0 }, size: { width: 1024, height: 2048 }, rotation: 0, zIndex: 1 },
       ],
     },
   },
+  // Layout 2: Diagonal split (premium)
   {
-    id: 'premium-parallax',
-    name: 'Parallax Layers',
+    id: 'grid-diagonal',
+    name: 'Diagonal Split',
     category: 'premium',
     isPremium: true,
     layout: {
-      canvas: {
-        width: 2048,
-        height: 2048,
-        background: {
-          type: 'gradient',
-          value: 'linear(#6B4FE0,#FF6B9D)',
-        },
-      },
+      canvas: { width: CANVAS_SIZE, height: CANVAS_SIZE, background: { type: 'color', value: '#FFFFFF' } },
       frames: [
-        {
-          id: 'frame-a',
-          position: { x: 100, y: 200 },
-          size: { width: 1100, height: 1100 },
-          rotation: -0.12,
-          zIndex: 1,
-        },
-        {
-          id: 'frame-b',
-          position: { x: 800, y: 600 },
-          size: { width: 900, height: 900 },
-          rotation: 0.18,
-          zIndex: 2,
-        },
+        { id: 'frame-0', position: { x: 0, y: 0 }, size: { width: 1024, height: 2048 }, rotation: 0, zIndex: 0 },
+        { id: 'frame-1', position: { x: 1024, y: 0 }, size: { width: 1024, height: 2048 }, rotation: 0, zIndex: 1 },
+      ],
+    },
+  },
+  // Layout 3: Left column + 2 stacked right
+  {
+    id: 'grid-col-stack',
+    name: 'Column & Stack',
+    category: 'grid',
+    isPremium: false,
+    layout: {
+      canvas: { width: CANVAS_SIZE, height: CANVAS_SIZE, background: { type: 'color', value: '#FFFFFF' } },
+      frames: [
+        { id: 'frame-0', position: { x: 0, y: 0 }, size: { width: 1008, height: 2048 }, rotation: 0, zIndex: 0 },
+        { id: 'frame-1', position: { x: 1024, y: 0 }, size: { width: 1024, height: 1008 }, rotation: 0, zIndex: 1 },
+        { id: 'frame-2', position: { x: 1024, y: 1024 }, size: { width: 1024, height: 1024 }, rotation: 0, zIndex: 2 },
+      ],
+    },
+  },
+  // Layout 4: Left column + 3 stacked right
+  {
+    id: 'grid-col-3stack',
+    name: 'Column & 3 Stack',
+    category: 'grid',
+    isPremium: false,
+    layout: {
+      canvas: { width: CANVAS_SIZE, height: CANVAS_SIZE, background: { type: 'color', value: '#FFFFFF' } },
+      frames: [
+        { id: 'frame-0', position: { x: 0, y: 0 }, size: { width: 1008, height: 2048 }, rotation: 0, zIndex: 0 },
+        { id: 'frame-1', position: { x: 1024, y: 0 }, size: { width: 1024, height: 661 }, rotation: 0, zIndex: 1 },
+        { id: 'frame-2', position: { x: 1024, y: 677 }, size: { width: 1024, height: 661 }, rotation: 0, zIndex: 2 },
+        { id: 'frame-3', position: { x: 1024, y: 1354 }, size: { width: 1024, height: 694 }, rotation: 0, zIndex: 3 },
+      ],
+    },
+  },
+  // Layout 5: Top row + bottom row (2 frames)
+  {
+    id: 'grid-rows',
+    name: 'Top & Bottom',
+    category: 'grid',
+    isPremium: false,
+    layout: {
+      canvas: { width: CANVAS_SIZE, height: CANVAS_SIZE, background: { type: 'color', value: '#FFFFFF' } },
+      frames: [
+        { id: 'frame-0', position: { x: 0, y: 0 }, size: { width: 2048, height: 1008 }, rotation: 0, zIndex: 0 },
+        { id: 'frame-1', position: { x: 0, y: 1024 }, size: { width: 2048, height: 1024 }, rotation: 0, zIndex: 1 },
+      ],
+    },
+  },
+  // Layout 6: Top row + 2x2 grid bottom
+  {
+    id: 'grid-top-2x2',
+    name: 'Top + 2x2',
+    category: 'grid',
+    isPremium: false,
+    layout: {
+      canvas: { width: CANVAS_SIZE, height: CANVAS_SIZE, background: { type: 'color', value: '#FFFFFF' } },
+      frames: [
+        { id: 'frame-0', position: { x: 0, y: 0 }, size: { width: 2048, height: 1008 }, rotation: 0, zIndex: 0 },
+        { id: 'frame-1', position: { x: 0, y: 1024 }, size: { width: 1008, height: 1024 }, rotation: 0, zIndex: 1 },
+        { id: 'frame-2', position: { x: 1024, y: 1024 }, size: { width: 1024, height: 1024 }, rotation: 0, zIndex: 2 },
+      ],
+    },
+  },
+  // Layout 7: 2x2 grid
+  {
+    id: 'grid-2x2',
+    name: '2x2 Grid',
+    category: 'grid',
+    isPremium: false,
+    layout: {
+      canvas: { width: CANVAS_SIZE, height: CANVAS_SIZE, background: { type: 'color', value: '#FFFFFF' } },
+      frames: [
+        { id: 'frame-0', position: { x: 0, y: 0 }, size: { width: 1008, height: 1008 }, rotation: 0, zIndex: 0 },
+        { id: 'frame-1', position: { x: 1024, y: 0 }, size: { width: 1024, height: 1008 }, rotation: 0, zIndex: 1 },
+        { id: 'frame-2', position: { x: 0, y: 1024 }, size: { width: 1008, height: 1024 }, rotation: 0, zIndex: 2 },
+        { id: 'frame-3', position: { x: 1024, y: 1024 }, size: { width: 1024, height: 1024 }, rotation: 0, zIndex: 3 },
+      ],
+    },
+  },
+  // Layout 8: 2 columns + bottom row
+  {
+    id: 'grid-2col-bottom',
+    name: '2 Columns + Bottom',
+    category: 'grid',
+    isPremium: false,
+    layout: {
+      canvas: { width: CANVAS_SIZE, height: CANVAS_SIZE, background: { type: 'color', value: '#FFFFFF' } },
+      frames: [
+        { id: 'frame-0', position: { x: 0, y: 0 }, size: { width: 1008, height: 1008 }, rotation: 0, zIndex: 0 },
+        { id: 'frame-1', position: { x: 1024, y: 0 }, size: { width: 1024, height: 1008 }, rotation: 0, zIndex: 1 },
+        { id: 'frame-2', position: { x: 0, y: 1024 }, size: { width: 2048, height: 1024 }, rotation: 0, zIndex: 2 },
       ],
     },
   },
