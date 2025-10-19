@@ -4,12 +4,15 @@ const spacingUnit = 4;
 
 const colorsDark: Theme['colors'] = {
   background: '#1A1625',
+  backgroundAlt: '#221832',
   surface: '#2D1B3D',
   surfaceAlt: '#3A2F4A',
+  primary: '#9B7FFF',
   accent: '#9B7FFF',
   accentSecondary: '#FF6B9D',
   textPrimary: '#FFFFFF',
   textSecondary: 'rgba(255,255,255,0.7)',
+  textTertiary: 'rgba(255,255,255,0.4)',
   success: '#4CAF50',
   warning: '#FFC107',
   error: '#FF5252',
@@ -18,12 +21,15 @@ const colorsDark: Theme['colors'] = {
 
 const colorsLight: Theme['colors'] = {
   background: '#F5F1FF',
+  backgroundAlt: '#EDE7FF',
   surface: '#FFFFFF',
   surfaceAlt: '#F2ECFF',
+  primary: '#6B4FE0',
   accent: '#6B4FE0',
   accentSecondary: '#FF6B9D',
   textPrimary: '#1A1625',
   textSecondary: 'rgba(26,22,37,0.7)',
+  textTertiary: 'rgba(26,22,37,0.4)',
   success: '#388E3C',
   warning: '#F9A825',
   error: '#D32F2F',

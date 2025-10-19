@@ -35,6 +35,12 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Mosaic Studio needs access to your photo library to create collages</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Mosaic Studio needs permission to save your collages to your photo library</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Mosaic Studio needs access to your camera to take photos for collages</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

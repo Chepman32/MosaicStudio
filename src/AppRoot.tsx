@@ -10,7 +10,10 @@ import { ProjectPersistenceProvider } from './state/ProjectPersistenceProvider';
 import { SkiaProvider } from './lib/SkiaProvider';
 
 export const AppRoot: React.FC = () => {
-  const colorScheme = useColorScheme();
+  const systemColorScheme = useColorScheme();
+  const colorScheme = systemColorScheme === 'light' || systemColorScheme === 'dark'
+    ? systemColorScheme
+    : 'dark';
 
   return (
     <GestureHandlerRootView style={styles.full}>

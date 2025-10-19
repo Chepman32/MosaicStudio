@@ -6,12 +6,15 @@ export interface Theme {
   mode: ThemeMode;
   colors: {
     background: string;
+    backgroundAlt: string;
     surface: string;
     surfaceAlt: string;
+    primary: string;
     accent: string;
     accentSecondary: string;
     textPrimary: string;
     textSecondary: string;
+    textTertiary: string;
     success: string;
     warning: string;
     error: string;

@@ -10,8 +10,10 @@ import { useProjectStore } from '../../stores/useProjectStore';
 
 export const HomeScreen: React.FC = () => {
   const theme = useTheme();
-  const projects = useProjectStore((state) =>
-    Object.values(state.projects).sort((a, b) => b.modifiedAt - a.modifiedAt),
+  const projectMap = useProjectStore((state) => state.projects);
+  const projects = React.useMemo(
+    () => Object.values(projectMap).sort((a, b) => b.modifiedAt - a.modifiedAt),
+    [projectMap],
   );
 
   return (

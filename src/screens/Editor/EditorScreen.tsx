@@ -1,15 +1,24 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { StyleSheet, View, Dimensions, ActivityIndicator } from 'react-native';
 
 import { SAMPLE_TEMPLATES } from '../../constants/templates';
 import { useNavigation } from '../../navigation/NavigationContext';
 import { useProjectStore } from '../../stores/useProjectStore';
 import { useTheme } from '../../theme/ThemeContext';
-import { DraggablePhoto } from '../../components/gestures/DraggablePhoto';
+import { useUIStore } from '../../stores/useUIStore';
+import { TopToolbar } from '../../components/editor/TopToolbar';
+import { BottomControlBar } from '../../components/editor/BottomControlBar';
+import { PhotoLayer } from '../../components/canvas/PhotoLayer';
+import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
+
 interface EditorScreenProps {
   projectId: string | null;
   templateId: string | null;
 }
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const CANVAS_WIDTH = SCREEN_WIDTH - 32;
+const CANVAS_HEIGHT = SCREEN_HEIGHT - 300;
 
 export const EditorScreen: React.FC<EditorScreenProps> = ({
   projectId,
@@ -20,11 +29,18 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
   const project = useProjectStore((state) =>
     projectId ? state.projects[projectId] : null,
   );
+  const updateLayer = useProjectStore((state) => state.updateLayer);
+  const deleteLayer = useProjectStore((state) => state.deleteLayer);
+  const renameProject = useProjectStore((state) => state.renameProject);
   const createFromTemplate = useProjectStore(
     (state) => state.createFromTemplate,
   );
   const createBlank = useProjectStore((state) => state.createBlankProject);
   const setCurrentProject = useProjectStore((state) => state.setCurrentProject);
+  const setTemplateDrawer = useUIStore((state) => state.setTemplateDrawer);
+  const openExportModal = useUIStore((state) => state.openExportModal);
+
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!projectId) {
@@ -43,6 +59,84 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
     }
   }, [createBlank, createFromTemplate, navigation, projectId, setCurrentProject, templateId]);
 
+  const handleLayerTransformUpdate = useCallback(
+    (layerId: string, transform: PhotoLayerType['transform']) => {
+      if (project) {
+        updateLayer(project.id, layerId, { transform });
+      }
+    },
+    [project, updateLayer]
+  );
+
+  const handleLayerDelete = useCallback(() => {
+    if (project && selectedLayerId) {
+      deleteLayer(project.id, selectedLayerId);
+      setSelectedLayerId(null);
+    }
+  }, [project, selectedLayerId, deleteLayer]);
+
+  const handleBack = useCallback(() => {
+    navigation.navigate({ route: 'home' });
+  }, [navigation]);
+
+  const handleExport = useCallback(() => {
+    if (project) {
+      openExportModal(project.id);
+    }
+  }, [project, openExportModal]);
+
+  const handleAddPhotos = useCallback(() => {
+    // Will be implemented with PhotoPicker
+    console.log('Add photos');
+  }, []);
+
+  const handleTemplates = useCallback(() => {
+    setTemplateDrawer({ isOpen: true });
+  }, [setTemplateDrawer]);
+
+  const handleBackgrounds = useCallback(() => {
+    // Will be implemented with BackgroundPanel
+    console.log('Backgrounds');
+  }, []);
+
+  const handleLayers = useCallback(() => {
+    // Will be implemented with LayersPanel
+    console.log('Layers');
+  }, []);
+
+  const handleFilters = useCallback(() => {
+    // Will be implemented with FilterSheet
+    console.log('Filters');
+  }, []);
+
+  const handleCrop = useCallback(() => {
+    // Will be implemented with CropTool
+    console.log('Crop');
+  }, []);
+
+  const handleFlip = useCallback(() => {
+    if (project && selectedLayerId) {
+      const layer = project.layers.find((l) => l.id === selectedLayerId);
+      if (layer) {
+        updateLayer(project.id, selectedLayerId, {
+          transform: {
+            ...layer.transform,
+            scale: -layer.transform.scale,
+          },
+        });
+      }
+    }
+  }, [project, selectedLayerId, updateLayer]);
+
+  const handleRename = useCallback(
+    (name: string) => {
+      if (project) {
+        renameProject(project.id, name);
+      }
+    },
+    [project, renameProject]
+  );
+
   if (!project) {
     return (
       <View
@@ -51,7 +145,7 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <Text style={{ color: theme.colors.textSecondary }}>Loading editor…</Text>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -62,31 +156,53 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
         styles.container,
         {
           backgroundColor: theme.colors.background,
-          padding: theme.spacing(6),
         },
       ]}
     >
-      <Text
-        style={[
-          styles.heading,
-          { color: theme.colors.textPrimary, marginBottom: theme.spacing(4) },
-        ]}
-      >
-        Editor placeholder for {project.name}
-      </Text>
+      <TopToolbar
+        projectName={project.name}
+        onBack={handleBack}
+        onExport={handleExport}
+        onRename={handleRename}
+      />
+
       <View
         style={[
-          styles.canvasPlaceholder,
+          styles.canvasContainer,
           {
+            backgroundColor: project.canvas.background.value,
+            margin: theme.spacing(4),
             borderRadius: theme.radius.l,
           },
         ]}
       >
-        <Text style={{ color: theme.colors.textSecondary, marginBottom: theme.spacing(4) }}>
-          Canvas will render here.
-        </Text>
-        <DraggablePhoto uri="https://picsum.photos/200" size={120} />
+        {project.layers
+          .filter((layer): layer is import('../../types/projects').PhotoLayer =>
+            'sourceUri' in layer
+          )
+          .map((layer) => (
+            <PhotoLayer
+              key={layer.id}
+              layer={layer}
+              isSelected={selectedLayerId === layer.id}
+              onSelect={setSelectedLayerId}
+              onTransformUpdate={handleLayerTransformUpdate}
+              onDelete={handleLayerDelete}
+            />
+          ))}
       </View>
+
+      <BottomControlBar
+        selectedLayerId={selectedLayerId}
+        onAddPhotos={handleAddPhotos}
+        onTemplates={handleTemplates}
+        onBackgrounds={handleBackgrounds}
+        onLayers={handleLayers}
+        onFilters={handleFilters}
+        onCrop={handleCrop}
+        onFlip={handleFlip}
+        onDelete={handleLayerDelete}
+      />
     </View>
   );
 };
@@ -100,15 +216,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  heading: {
-    fontSize: 22,
-    fontWeight: '600',
-  },
-  canvasPlaceholder: {
+  canvasContainer: {
     flex: 1,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
   },
 });

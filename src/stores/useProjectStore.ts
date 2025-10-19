@@ -35,7 +35,9 @@ interface ProjectStoreState {
   addLayer: (projectId: string, layer: Layer) => void;
   updateLayer: (projectId: string, layerId: string, updates: Partial<Layer>) => void;
   removeLayer: (projectId: string, layerId: string) => void;
+  deleteLayer: (projectId: string, layerId: string) => void;
   reorderLayers: (projectId: string, orderedLayerIds: string[]) => void;
+  renameProject: (projectId: string, newName: string) => void;
   setSaving: (value: boolean) => void;
   pushHistory: (project: CollageProject) => void;
   undo: () => void;
@@ -180,6 +182,9 @@ export const useProjectStore = create<ProjectStoreState>()(
           { pushHistory: true },
         );
       },
+      deleteLayer: (projectId, layerId) => {
+        get().removeLayer(projectId, layerId);
+      },
       reorderLayers: (projectId, orderedLayerIds) => {
         get().updateProject(
           projectId,
@@ -194,6 +199,15 @@ export const useProjectStore = create<ProjectStoreState>()(
               .filter(Boolean) as Layer[],
           }),
           { pushHistory: true },
+        );
+      },
+      renameProject: (projectId, newName) => {
+        get().updateProject(
+          projectId,
+          (project) => ({
+            ...project,
+            name: newName,
+          }),
         );
       },
       setSaving: (value) => set({ isSaving: value }),

@@ -10,15 +10,25 @@
     "test": "jest"
   },
   "dependencies": {
+    "@react-native-camera-roll/camera-roll": "^7.8.3",
+    "@react-native-community/slider": "^5.0.1",
+    "@react-native/new-app-screen": "0.82.0",
+    "@shopify/react-native-skia": "^2.3.4",
+    "nanoid": "^5.0.5",
     "react": "19.1.1",
     "react-native": "0.82.0",
-    "@react-native/new-app-screen": "0.82.0",
-    "react-native-safe-area-context": "^5.5.2",
+    "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.16.2",
+    "react-native-iap": "^14.4.23",
+    "react-native-image-crop-picker": "^0.51.0",
+    "react-native-image-picker": "^8.2.1",
+    "react-native-mmkv": "^3.2.0",
+    "react-native-nitro-modules": "^0.30.2",
+    "react-native-quick-sqlite": "^8.2.7",
     "react-native-reanimated": "^3.15.3",
-    "zustand": "^5.0.3",
-    "nanoid": "^5.0.5",
-    "react-native-mmkv": "^3.2.0"
+    "react-native-safe-area-context": "^5.5.2",
+    "react-native-vector-icons": "^10.3.0",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -42,5 +52,6 @@
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "packageManager": "yarn@4.1.1+sha512.ec40d0639bb307441b945d9467139cbb88d14394baac760b52eca038b330d16542d66fef61574271534ace5a200518dabf3b53a85f1f9e4bfa37141b538a9590"
 }
