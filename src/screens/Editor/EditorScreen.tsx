@@ -16,6 +16,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { TopToolbar } from '../../components/editor/TopToolbar';
 import { BottomControlBar } from '../../components/editor/BottomControlBar';
 import { PhotoLayer } from '../../components/canvas/PhotoLayer';
+import { EmptyFrame } from '../../components/canvas/EmptyFrame';
 import { BackgroundPanel } from '../../components/overlays/BackgroundPanel';
 import { LayersPanel } from '../../components/overlays/LayersPanel';
 import { FilterSheet } from '../../components/overlays/FilterSheet';
@@ -165,64 +166,17 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
     [project],
   );
 
-  const handleAddPhotos = useCallback(async () => {
+  const handleAddPhotoToFrame = useCallback(async (layerId: string) => {
     if (!project) return;
     const photos = await pickPhotos();
 
-    console.log('Selected photos:', photos.length);
-    console.log('Current layers:', project.layers.length);
-
-    // Find empty layers (layers without sourceUri from template)
-    const emptyLayers = project.layers.filter((layer) => !layer.sourceUri);
-    console.log('Empty layers:', emptyLayers.length);
-
-    photos.forEach((photo, index) => {
-      console.log(`Processing photo ${index + 1}:`, photo.uri);
-
-      // If there's an empty template frame, fill it
-      if (emptyLayers[index]) {
-        const emptyLayer = emptyLayers[index];
-        console.log(`Filling empty layer ${emptyLayer.id}`);
-        updateLayer(project.id, emptyLayer.id, {
-          sourceUri: photo.uri,
-        });
-      } else {
-        // Otherwise create a new layer with offset position
-        const offset = (index - emptyLayers.length) * 30;
-        console.log(`Creating new layer at offset ${offset}`);
-
-        const safeWidth = Math.max(photo.width, 1);
-        const safeHeight = Math.max(photo.height, 1);
-        const aspectRatio = safeWidth / safeHeight || 1;
-        const maxWidth = project.canvas.width * 0.6;
-        const maxHeight = project.canvas.height * 0.6;
-        let layerWidth = maxWidth;
-        let layerHeight = layerWidth / aspectRatio;
-
-        if (layerHeight > maxHeight) {
-          layerHeight = maxHeight;
-          layerWidth = layerHeight * aspectRatio;
-        }
-
-        const baseX = project.canvas.width / 2 - layerWidth / 2 + offset;
-        const baseY = project.canvas.height / 2 - layerHeight / 2 + offset;
-
-        const layer: PhotoLayerType = {
-          id: nanoid(),
-          sourceUri: photo.uri,
-          dimensions: { width: layerWidth, height: layerHeight },
-          transform: { x: baseX, y: baseY, scale: 1, rotation: 0 },
-          filters: [],
-          opacity: 1,
-          blendMode: 'normal',
-          zIndex: project.layers.length + (index - emptyLayers.length),
-          crop: null,
-          mask: null,
-        };
-        addLayer(project.id, layer);
-      }
-    });
-  }, [project, pickPhotos, addLayer, updateLayer]);
+    if (photos.length > 0) {
+      const photo = photos[0];
+      updateLayer(project.id, layerId, {
+        sourceUri: photo.uri,
+      });
+    }
+  }, [project, pickPhotos, updateLayer]);
 
   const handleTemplates = useCallback(() => {
     setTemplateDrawer({ isOpen: true });
@@ -382,25 +336,33 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
         >
           {project.layers
             .filter((layer): layer is import('../../types/projects').PhotoLayer =>
-              'sourceUri' in layer && !!layer.sourceUri
+              'sourceUri' in layer
             )
-            .map((layer) => (
-              <PhotoLayer
-                key={layer.id}
-                layer={layer}
-                isSelected={selectedLayerId === layer.id}
-                onSelect={setSelectedLayerId}
-                onTransformUpdate={handleLayerTransformUpdate}
-                onDelete={handleLayerDelete}
-                viewportScale={canvasScale}
-              />
-            ))}
+            .map((layer) =>
+              layer.sourceUri ? (
+                <PhotoLayer
+                  key={layer.id}
+                  layer={layer}
+                  isSelected={selectedLayerId === layer.id}
+                  onSelect={setSelectedLayerId}
+                  onTransformUpdate={handleLayerTransformUpdate}
+                  onDelete={handleLayerDelete}
+                  viewportScale={canvasScale}
+                />
+              ) : (
+                <EmptyFrame
+                  key={layer.id}
+                  layer={layer}
+                  viewportScale={canvasScale}
+                  onPress={handleAddPhotoToFrame}
+                />
+              )
+            )}
         </View>
       </View>
 
       <BottomControlBar
         selectedLayerId={selectedLayerId}
-        onAddPhotos={handleAddPhotos}
         onTemplates={handleTemplates}
         onBackgrounds={handleBackgrounds}
         onLayers={handleLayers}

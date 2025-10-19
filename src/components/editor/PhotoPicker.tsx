@@ -9,11 +9,11 @@ export interface PhotoPickerResult {
 }
 
 export const usePhotoPicker = () => {
-  const pickPhotos = async (): Promise<PhotoPickerResult[]> => {
+  const pickPhotos = async (selectionLimit: number = 1): Promise<PhotoPickerResult[]> => {
     try {
       const result = await launchImageLibrary({
         mediaType: 'photo',
-        selectionLimit: 10,
+        selectionLimit,
         quality: 1,
         includeBase64: false,
       });

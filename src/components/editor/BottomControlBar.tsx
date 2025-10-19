@@ -9,7 +9,6 @@ import { useTheme } from '../../theme/ThemeContext';
 
 interface BottomControlBarProps {
   selectedLayerId: string | null;
-  onAddPhotos: () => void;
   onTemplates: () => void;
   onBackgrounds: () => void;
   onLayers: () => void;
@@ -23,7 +22,6 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const BottomControlBar: React.FC<BottomControlBarProps> = ({
   selectedLayerId,
-  onAddPhotos,
   onTemplates,
   onBackgrounds,
   onLayers,
@@ -35,7 +33,6 @@ export const BottomControlBar: React.FC<BottomControlBarProps> = ({
   const theme = useTheme();
 
   const defaultButtons = [
-    { icon: '+', label: 'Add Photos', onPress: onAddPhotos },
     { icon: '⊞', label: 'Templates', onPress: onTemplates },
     { icon: '◐', label: 'Backgrounds', onPress: onBackgrounds },
     { icon: '⧉', label: 'Layers', onPress: onLayers },

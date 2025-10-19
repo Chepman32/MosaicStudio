@@ -146,27 +146,59 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
     zIndex: layer.zIndex,
   }));
 
+  const imageStyle = React.useMemo(() => {
+    if (!layer.crop) {
+      return {
+        width: layer.dimensions.width * viewportScale,
+        height: layer.dimensions.height * viewportScale,
+      };
+    }
+
+    const cropWidth = layer.crop.width;
+    const cropHeight = layer.crop.height;
+    const displayWidth = layer.dimensions.width * viewportScale;
+    const displayHeight = layer.dimensions.height * viewportScale;
+
+    return {
+      width: displayWidth / cropWidth,
+      height: displayHeight / cropHeight,
+      left: -(layer.crop.x * displayWidth) / cropWidth,
+      top: -(layer.crop.y * displayHeight) / cropHeight,
+    };
+  }, [layer.crop, layer.dimensions, viewportScale]);
+
   return (
     <GestureDetector gesture={composed}>
-      <Animated.Image
-        source={{ uri: layer.sourceUri }}
+      <Animated.View
         style={[
           styles.photo,
           {
             width: layer.dimensions.width * viewportScale,
             height: layer.dimensions.height * viewportScale,
+            overflow: 'hidden',
           },
           animatedStyle,
           isSelected && styles.selected,
         ]}
-        resizeMode="cover"
-      />
+      >
+        <Animated.Image
+          source={{ uri: layer.sourceUri }}
+          style={[
+            styles.image,
+            imageStyle,
+          ]}
+          resizeMode="cover"
+        />
+      </Animated.View>
     </GestureDetector>
   );
 };
 
 const styles = StyleSheet.create({
   photo: {
+    position: 'absolute',
+  },
+  image: {
     position: 'absolute',
   },
   selected: {
