@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -18,6 +18,7 @@ interface PhotoLayerProps {
     transform: PhotoLayerType['transform']
   ) => void;
   onDelete?: (layerId: string) => void;
+  viewportScale?: number;
 }
 
 export const PhotoLayer: React.FC<PhotoLayerProps> = ({
@@ -25,7 +26,8 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
   isSelected,
   onSelect,
   onTransformUpdate,
-  onDelete,
+  onDelete: _onDelete,
+  viewportScale = 1,
 }) => {
   const translateX = useSharedValue(layer.transform.x);
   const translateY = useSharedValue(layer.transform.y);
@@ -33,14 +35,44 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
   const rotation = useSharedValue(layer.transform.rotation);
   const savedScale = useSharedValue(layer.transform.scale);
   const savedRotation = useSharedValue(layer.transform.rotation);
+  const startX = useSharedValue(layer.transform.x);
+  const startY = useSharedValue(layer.transform.y);
+  const viewport = useSharedValue(Math.max(viewportScale, 0.0001));
+
+  useEffect(() => {
+    translateX.value = layer.transform.x;
+    translateY.value = layer.transform.y;
+    scale.value = layer.transform.scale;
+    rotation.value = layer.transform.rotation;
+    startX.value = layer.transform.x;
+    startY.value = layer.transform.y;
+  }, [
+    layer.transform.x,
+    layer.transform.y,
+    layer.transform.scale,
+    layer.transform.rotation,
+    translateX,
+    translateY,
+    scale,
+    rotation,
+    startX,
+    startY,
+  ]);
+
+  useEffect(() => {
+    viewport.value = Math.max(viewportScale, 0.0001);
+  }, [viewportScale, viewport]);
 
   const panGesture = Gesture.Pan()
     .onStart(() => {
+      startX.value = translateX.value;
+      startY.value = translateY.value;
       runOnJS(onSelect)(layer.id);
     })
     .onUpdate((e) => {
-      translateX.value = layer.transform.x + e.translationX;
-      translateY.value = layer.transform.y + e.translationY;
+      const divisor = viewport.value;
+      translateX.value = startX.value + e.translationX / divisor;
+      translateY.value = startY.value + e.translationY / divisor;
     })
     .onEnd(() => {
       runOnJS(onTransformUpdate)(layer.id, {
@@ -105,8 +137,8 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
+      { translateX: translateX.value * viewport.value },
+      { translateY: translateY.value * viewport.value },
       { scale: scale.value },
       { rotateZ: `${rotation.value}rad` },
     ],
@@ -121,8 +153,8 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
         style={[
           styles.photo,
           {
-            width: layer.dimensions.width,
-            height: layer.dimensions.height,
+            width: layer.dimensions.width * viewportScale,
+            height: layer.dimensions.height * viewportScale,
           },
           animatedStyle,
           isSelected && styles.selected,

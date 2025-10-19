@@ -36,7 +36,10 @@ interface ProjectStoreState {
   updateLayer: (projectId: string, layerId: string, updates: Partial<Layer>) => void;
   removeLayer: (projectId: string, layerId: string) => void;
   deleteLayer: (projectId: string, layerId: string) => void;
+  duplicateLayer: (projectId: string, layerId: string) => void;
+  toggleLayerVisibility: (projectId: string, layerId: string) => void;
   reorderLayers: (projectId: string, orderedLayerIds: string[]) => void;
+  updateCanvasBackground: (projectId: string, background: string) => void;
   renameProject: (projectId: string, newName: string) => void;
   setSaving: (value: boolean) => void;
   pushHistory: (project: CollageProject) => void;
@@ -185,6 +188,44 @@ export const useProjectStore = create<ProjectStoreState>()(
       deleteLayer: (projectId, layerId) => {
         get().removeLayer(projectId, layerId);
       },
+      duplicateLayer: (projectId, layerId) => {
+        get().updateProject(
+          projectId,
+          (project) => {
+            const layer = project.layers.find((l) => l.id === layerId);
+            if (!layer) return project;
+            const duplicated = {
+              ...layer,
+              id: nanoid(),
+              zIndex: project.layers.length,
+              transform: {
+                ...layer.transform,
+                x: layer.transform.x + 20,
+                y: layer.transform.y + 20,
+              },
+            };
+            return {
+              ...project,
+              layers: [...project.layers, duplicated],
+            };
+          },
+          { pushHistory: true },
+        );
+      },
+      toggleLayerVisibility: (projectId, layerId) => {
+        get().updateProject(
+          projectId,
+          (project) => ({
+            ...project,
+            layers: project.layers.map((layer) =>
+              layer.id === layerId
+                ? { ...layer, opacity: layer.opacity > 0 ? 0 : 1 }
+                : layer,
+            ),
+          }),
+          { pushHistory: true },
+        );
+      },
       reorderLayers: (projectId, orderedLayerIds) => {
         get().updateProject(
           projectId,
@@ -197,6 +238,22 @@ export const useProjectStore = create<ProjectStoreState>()(
                 return { ...layer, zIndex: index };
               })
               .filter(Boolean) as Layer[],
+          }),
+          { pushHistory: true },
+        );
+      },
+      updateCanvasBackground: (projectId, background) => {
+        get().updateProject(
+          projectId,
+          (project) => ({
+            ...project,
+            canvas: {
+              ...project.canvas,
+              background: {
+                type: 'solid',
+                value: background,
+              },
+            },
           }),
           { pushHistory: true },
         );

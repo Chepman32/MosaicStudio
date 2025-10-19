@@ -1,5 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, View, Dimensions, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Dimensions,
+  ActivityIndicator,
+  LayoutChangeEvent,
+} from 'react-native';
+import { nanoid } from 'nanoid/non-secure';
 
 import { SAMPLE_TEMPLATES } from '../../constants/templates';
 import { useNavigation } from '../../navigation/NavigationContext';
@@ -9,6 +16,11 @@ import { useUIStore } from '../../stores/useUIStore';
 import { TopToolbar } from '../../components/editor/TopToolbar';
 import { BottomControlBar } from '../../components/editor/BottomControlBar';
 import { PhotoLayer } from '../../components/canvas/PhotoLayer';
+import { BackgroundPanel } from '../../components/overlays/BackgroundPanel';
+import { LayersPanel } from '../../components/overlays/LayersPanel';
+import { FilterSheet } from '../../components/overlays/FilterSheet';
+import { CropTool } from '../../components/editor/CropTool';
+import { usePhotoPicker } from '../../components/editor/PhotoPicker';
 import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
 
 interface EditorScreenProps {
@@ -17,8 +29,8 @@ interface EditorScreenProps {
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CANVAS_WIDTH = SCREEN_WIDTH - 32;
-const CANVAS_HEIGHT = SCREEN_HEIGHT - 300;
+const DEFAULT_CANVAS_WIDTH = SCREEN_WIDTH - 32;
+const DEFAULT_CANVAS_HEIGHT = SCREEN_HEIGHT - 300;
 
 export const EditorScreen: React.FC<EditorScreenProps> = ({
   projectId,
@@ -29,9 +41,17 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
   const project = useProjectStore((state) =>
     projectId ? state.projects[projectId] : null,
   );
+  const addLayer = useProjectStore((state) => state.addLayer);
   const updateLayer = useProjectStore((state) => state.updateLayer);
   const deleteLayer = useProjectStore((state) => state.deleteLayer);
+  const duplicateLayer = useProjectStore((state) => state.duplicateLayer);
+  const toggleLayerVisibility = useProjectStore((state) => state.toggleLayerVisibility);
+  const updateCanvasBackground = useProjectStore((state) => state.updateCanvasBackground);
   const renameProject = useProjectStore((state) => state.renameProject);
+  const undo = useProjectStore((state) => state.undo);
+  const redo = useProjectStore((state) => state.redo);
+  const undoStack = useProjectStore((state) => state.undoStack);
+  const redoStack = useProjectStore((state) => state.redoStack);
   const createFromTemplate = useProjectStore(
     (state) => state.createFromTemplate,
   );
@@ -39,8 +59,23 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
   const setCurrentProject = useProjectStore((state) => state.setCurrentProject);
   const setTemplateDrawer = useUIStore((state) => state.setTemplateDrawer);
   const openExportModal = useUIStore((state) => state.openExportModal);
+  const backgroundPanelOpen = useUIStore((state) => state.backgroundPanelOpen);
+  const layersPanelOpen = useUIStore((state) => state.layersPanelOpen);
+  const filterSheetLayerId = useUIStore((state) => state.filterSheetLayerId);
+  const cropToolLayerId = useUIStore((state) => state.cropToolLayerId);
+  const openBackgroundPanel = useUIStore((state) => state.openBackgroundPanel);
+  const closeBackgroundPanel = useUIStore((state) => state.closeBackgroundPanel);
+  const openLayersPanel = useUIStore((state) => state.openLayersPanel);
+  const closeLayersPanel = useUIStore((state) => state.closeLayersPanel);
+  const openFilterSheet = useUIStore((state) => state.openFilterSheet);
+  const closeFilterSheet = useUIStore((state) => state.closeFilterSheet);
+  const openCropTool = useUIStore((state) => state.openCropTool);
+  const closeCropTool = useUIStore((state) => state.closeCropTool);
+
+  const { pickPhotos } = usePhotoPicker();
 
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [canvasScale, setCanvasScale] = useState(1);
 
   useEffect(() => {
     if (!projectId) {
@@ -58,6 +93,27 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
       navigation.reset({ route: 'editor', projectId: created.id, templateId: null });
     }
   }, [createBlank, createFromTemplate, navigation, projectId, setCurrentProject, templateId]);
+
+  useEffect(() => {
+    if (!project) {
+      setCanvasScale(1);
+      return;
+    }
+
+    const baseWidth = Math.max(DEFAULT_CANVAS_WIDTH, 1);
+    const baseHeight = Math.max(DEFAULT_CANVAS_HEIGHT, 1);
+    const scaleX = baseWidth / project.canvas.width;
+    const scaleY = baseHeight / project.canvas.height;
+    const nextScale = Math.min(scaleX, scaleY);
+
+    if (!Number.isFinite(nextScale) || nextScale <= 0) {
+      return;
+    }
+
+    setCanvasScale((current) =>
+      Math.abs(nextScale - current) > 0.001 ? nextScale : current
+    );
+  }, [project]);
 
   const handleLayerTransformUpdate = useCallback(
     (layerId: string, transform: PhotoLayerType['transform']) => {
@@ -85,34 +141,112 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
     }
   }, [project, openExportModal]);
 
-  const handleAddPhotos = useCallback(() => {
-    // Will be implemented with PhotoPicker
-    console.log('Add photos');
-  }, []);
+  const handleCanvasLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      if (!project) return;
+
+      const { width, height } = event.nativeEvent.layout;
+      if (width <= 0 || height <= 0) {
+        return;
+      }
+
+      const scaleX = width / project.canvas.width;
+      const scaleY = height / project.canvas.height;
+      const nextScale = Math.min(scaleX, scaleY);
+
+      if (!Number.isFinite(nextScale) || nextScale <= 0) {
+        return;
+      }
+
+      setCanvasScale((current) =>
+        Math.abs(nextScale - current) > 0.001 ? nextScale : current
+      );
+    },
+    [project],
+  );
+
+  const handleAddPhotos = useCallback(async () => {
+    if (!project) return;
+    const photos = await pickPhotos();
+
+    console.log('Selected photos:', photos.length);
+    console.log('Current layers:', project.layers.length);
+
+    // Find empty layers (layers without sourceUri from template)
+    const emptyLayers = project.layers.filter((layer) => !layer.sourceUri);
+    console.log('Empty layers:', emptyLayers.length);
+
+    photos.forEach((photo, index) => {
+      console.log(`Processing photo ${index + 1}:`, photo.uri);
+
+      // If there's an empty template frame, fill it
+      if (emptyLayers[index]) {
+        const emptyLayer = emptyLayers[index];
+        console.log(`Filling empty layer ${emptyLayer.id}`);
+        updateLayer(project.id, emptyLayer.id, {
+          sourceUri: photo.uri,
+        });
+      } else {
+        // Otherwise create a new layer with offset position
+        const offset = (index - emptyLayers.length) * 30;
+        console.log(`Creating new layer at offset ${offset}`);
+
+        const safeWidth = Math.max(photo.width, 1);
+        const safeHeight = Math.max(photo.height, 1);
+        const aspectRatio = safeWidth / safeHeight || 1;
+        const maxWidth = project.canvas.width * 0.6;
+        const maxHeight = project.canvas.height * 0.6;
+        let layerWidth = maxWidth;
+        let layerHeight = layerWidth / aspectRatio;
+
+        if (layerHeight > maxHeight) {
+          layerHeight = maxHeight;
+          layerWidth = layerHeight * aspectRatio;
+        }
+
+        const baseX = project.canvas.width / 2 - layerWidth / 2 + offset;
+        const baseY = project.canvas.height / 2 - layerHeight / 2 + offset;
+
+        const layer: PhotoLayerType = {
+          id: nanoid(),
+          sourceUri: photo.uri,
+          dimensions: { width: layerWidth, height: layerHeight },
+          transform: { x: baseX, y: baseY, scale: 1, rotation: 0 },
+          filters: [],
+          opacity: 1,
+          blendMode: 'normal',
+          zIndex: project.layers.length + (index - emptyLayers.length),
+          crop: null,
+          mask: null,
+        };
+        addLayer(project.id, layer);
+      }
+    });
+  }, [project, pickPhotos, addLayer, updateLayer]);
 
   const handleTemplates = useCallback(() => {
     setTemplateDrawer({ isOpen: true });
   }, [setTemplateDrawer]);
 
   const handleBackgrounds = useCallback(() => {
-    // Will be implemented with BackgroundPanel
-    console.log('Backgrounds');
-  }, []);
+    openBackgroundPanel();
+  }, [openBackgroundPanel]);
 
   const handleLayers = useCallback(() => {
-    // Will be implemented with LayersPanel
-    console.log('Layers');
-  }, []);
+    openLayersPanel();
+  }, [openLayersPanel]);
 
   const handleFilters = useCallback(() => {
-    // Will be implemented with FilterSheet
-    console.log('Filters');
-  }, []);
+    if (selectedLayerId) {
+      openFilterSheet(selectedLayerId);
+    }
+  }, [selectedLayerId, openFilterSheet]);
 
   const handleCrop = useCallback(() => {
-    // Will be implemented with CropTool
-    console.log('Crop');
-  }, []);
+    if (selectedLayerId) {
+      openCropTool(selectedLayerId);
+    }
+  }, [selectedLayerId, openCropTool]);
 
   const handleFlip = useCallback(() => {
     if (project && selectedLayerId) {
@@ -135,6 +269,60 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
       }
     },
     [project, renameProject]
+  );
+
+  const handleBackgroundChange = useCallback(
+    (background: string) => {
+      if (project) {
+        updateCanvasBackground(project.id, background);
+      }
+    },
+    [project, updateCanvasBackground]
+  );
+
+  const handleLayerSelect = useCallback(
+    (layerId: string) => {
+      setSelectedLayerId(layerId);
+    },
+    []
+  );
+
+  const handleLayerVisibilityToggle = useCallback(
+    (layerId: string) => {
+      if (project) {
+        toggleLayerVisibility(project.id, layerId);
+      }
+    },
+    [project, toggleLayerVisibility]
+  );
+
+  const handleLayerDuplicate = useCallback(
+    (layerId: string) => {
+      if (project) {
+        duplicateLayer(project.id, layerId);
+      }
+    },
+    [project, duplicateLayer]
+  );
+
+  const handleApplyFilter = useCallback(
+    (filterId: string, intensity: number) => {
+      if (project && filterSheetLayerId) {
+        updateLayer(project.id, filterSheetLayerId, {
+          filters: [{ id: filterId, intensity }],
+        });
+      }
+    },
+    [project, filterSheetLayerId, updateLayer]
+  );
+
+  const handleApplyCrop = useCallback(
+    (crop: { x: number; y: number; width: number; height: number }) => {
+      if (project && cropToolLayerId) {
+        updateLayer(project.id, cropToolLayerId, { crop });
+      }
+    },
+    [project, cropToolLayerId, updateLayer]
   );
 
   if (!project) {
@@ -162,34 +350,52 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
       <TopToolbar
         projectName={project.name}
         onBack={handleBack}
+        onUndo={undo}
+        onRedo={redo}
         onExport={handleExport}
         onRename={handleRename}
+        canUndo={undoStack.length > 0}
+        canRedo={redoStack.length > 0}
       />
 
       <View
         style={[
           styles.canvasContainer,
           {
-            backgroundColor: project.canvas.background.value,
             margin: theme.spacing(4),
             borderRadius: theme.radius.l,
+            backgroundColor: project.canvas.background.value,
           },
         ]}
+        onLayout={handleCanvasLayout}
       >
-        {project.layers
-          .filter((layer): layer is import('../../types/projects').PhotoLayer =>
-            'sourceUri' in layer
-          )
-          .map((layer) => (
-            <PhotoLayer
-              key={layer.id}
-              layer={layer}
-              isSelected={selectedLayerId === layer.id}
-              onSelect={setSelectedLayerId}
-              onTransformUpdate={handleLayerTransformUpdate}
-              onDelete={handleLayerDelete}
-            />
-          ))}
+        <View
+          style={[
+            styles.canvasInner,
+            {
+              width: project.canvas.width * canvasScale,
+              height: project.canvas.height * canvasScale,
+              borderRadius: theme.radius.l,
+              backgroundColor: project.canvas.background.value,
+            },
+          ]}
+        >
+          {project.layers
+            .filter((layer): layer is import('../../types/projects').PhotoLayer =>
+              'sourceUri' in layer && !!layer.sourceUri
+            )
+            .map((layer) => (
+              <PhotoLayer
+                key={layer.id}
+                layer={layer}
+                isSelected={selectedLayerId === layer.id}
+                onSelect={setSelectedLayerId}
+                onTransformUpdate={handleLayerTransformUpdate}
+                onDelete={handleLayerDelete}
+                viewportScale={canvasScale}
+              />
+            ))}
+        </View>
       </View>
 
       <BottomControlBar
@@ -203,6 +409,57 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
         onFlip={handleFlip}
         onDelete={handleLayerDelete}
       />
+
+      <BackgroundPanel
+        isVisible={backgroundPanelOpen}
+        onClose={closeBackgroundPanel}
+        currentBackground={project.canvas.background.value}
+        onBackgroundChange={handleBackgroundChange}
+      />
+
+      <LayersPanel
+        isVisible={layersPanelOpen}
+        onClose={closeLayersPanel}
+        layers={project.layers.filter((layer): layer is PhotoLayerType =>
+          'sourceUri' in layer
+        )}
+        selectedLayerId={selectedLayerId}
+        onLayerSelect={handleLayerSelect}
+        onLayerVisibilityToggle={handleLayerVisibilityToggle}
+        onLayerLockToggle={() => {}}
+        onLayerDelete={(layerId) => deleteLayer(project.id, layerId)}
+        onLayerDuplicate={handleLayerDuplicate}
+        onLayerReorder={() => {}}
+      />
+
+      {filterSheetLayerId && (
+        <FilterSheet
+          isVisible={!!filterSheetLayerId}
+          onClose={closeFilterSheet}
+          currentFilter={
+            project.layers.find((l) => l.id === filterSheetLayerId)?.filters[0]?.id || 'none'
+          }
+          onApplyFilter={handleApplyFilter}
+          photoUri={
+            project.layers.find((l) => l.id === filterSheetLayerId)?.sourceUri || ''
+          }
+          isPremium={false}
+        />
+      )}
+
+      {cropToolLayerId && (
+        <CropTool
+          isVisible={!!cropToolLayerId}
+          onClose={closeCropTool}
+          photoUri={
+            project.layers.find((l) => l.id === cropToolLayerId)?.sourceUri || ''
+          }
+          currentCrop={
+            project.layers.find((l) => l.id === cropToolLayerId)?.crop
+          }
+          onApplyCrop={handleApplyCrop}
+        />
+      )}
     </View>
   );
 };
@@ -218,6 +475,11 @@ const styles = StyleSheet.create({
   },
   canvasContainer: {
     flex: 1,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  canvasInner: {
     position: 'relative',
     overflow: 'hidden',
   },

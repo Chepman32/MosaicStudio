@@ -15,6 +15,10 @@ interface UIStoreState {
   exportModalProjectId: string | null;
   premiumSheetFeature: string | null;
   contextMenu: ContextMenuState | null;
+  backgroundPanelOpen: boolean;
+  layersPanelOpen: boolean;
+  filterSheetLayerId: string | null;
+  cropToolLayerId: string | null;
   setTemplateDrawer: (state: Partial<TemplateDrawerState>) => void;
   openExportModal: (projectId: string) => void;
   closeExportModal: () => void;
@@ -22,6 +26,14 @@ interface UIStoreState {
   closePremiumSheet: () => void;
   openContextMenu: (state: ContextMenuState) => void;
   closeContextMenu: () => void;
+  openBackgroundPanel: () => void;
+  closeBackgroundPanel: () => void;
+  openLayersPanel: () => void;
+  closeLayersPanel: () => void;
+  openFilterSheet: (layerId: string) => void;
+  closeFilterSheet: () => void;
+  openCropTool: (layerId: string) => void;
+  closeCropTool: () => void;
 }
 
 export const useUIStore = create<UIStoreState>((set) => ({
@@ -29,6 +41,10 @@ export const useUIStore = create<UIStoreState>((set) => ({
   exportModalProjectId: null,
   premiumSheetFeature: null,
   contextMenu: null,
+  backgroundPanelOpen: false,
+  layersPanelOpen: false,
+  filterSheetLayerId: null,
+  cropToolLayerId: null,
   setTemplateDrawer: (state) =>
     set((prev) => ({
       templateDrawer: { ...prev.templateDrawer, ...state },
@@ -39,4 +55,12 @@ export const useUIStore = create<UIStoreState>((set) => ({
   closePremiumSheet: () => set({ premiumSheetFeature: null }),
   openContextMenu: (state) => set({ contextMenu: state }),
   closeContextMenu: () => set({ contextMenu: null }),
+  openBackgroundPanel: () => set({ backgroundPanelOpen: true }),
+  closeBackgroundPanel: () => set({ backgroundPanelOpen: false }),
+  openLayersPanel: () => set({ layersPanelOpen: true }),
+  closeLayersPanel: () => set({ layersPanelOpen: false }),
+  openFilterSheet: (layerId) => set({ filterSheetLayerId: layerId }),
+  closeFilterSheet: () => set({ filterSheetLayerId: null }),
+  openCropTool: (layerId) => set({ cropToolLayerId: layerId }),
+  closeCropTool: () => set({ cropToolLayerId: null }),
 }));
