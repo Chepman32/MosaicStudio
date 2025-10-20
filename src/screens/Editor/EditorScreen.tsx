@@ -25,6 +25,9 @@ import { CropTool } from '../../components/editor/CropTool';
 import { usePhotoPicker } from '../../components/editor/PhotoPicker';
 import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
 
+// Keep resizing logic consistent with PhotoLayer
+const MIN_DIMENSION = 60;
+
 interface EditorScreenProps {
   projectId: string | null;
   templateId: string | null;
@@ -346,7 +349,8 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
   const handleLayerResize = useCallback(
     (
       layerId: string,
-      size: { width: number; height: number; x: number; y: number }
+      size: { width: number; height: number; x: number; y: number },
+      edge: 'left' | 'right' | 'top' | 'bottom'
     ) => {
       if (!project) {
         return;
@@ -360,6 +364,43 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
         return;
       }
 
+      const EDGE_THRESHOLD = 20;
+
+      // Find adjacent layer that shares this edge
+      const adjacentLayer = project.layers.find((item): item is PhotoLayerType => {
+        if (!('sourceUri' in item) || item.id === layerId) {
+          return false;
+        }
+
+        const currentRight = layer.transform.x + layer.dimensions.width;
+        const currentBottom = layer.transform.y + layer.dimensions.height;
+        const otherRight = item.transform.x + item.dimensions.width;
+        const otherBottom = item.transform.y + item.dimensions.height;
+
+        const overlapVertical = !(
+          layer.transform.y >= otherBottom ||
+          currentBottom <= item.transform.y
+        );
+        const overlapHorizontal = !(
+          layer.transform.x >= otherRight ||
+          currentRight <= item.transform.x
+        );
+
+        switch (edge) {
+          case 'right':
+            return overlapVertical && Math.abs(currentRight - item.transform.x) < EDGE_THRESHOLD;
+          case 'left':
+            return overlapVertical && Math.abs(layer.transform.x - otherRight) < EDGE_THRESHOLD;
+          case 'bottom':
+            return overlapHorizontal && Math.abs(currentBottom - item.transform.y) < EDGE_THRESHOLD;
+          case 'top':
+            return overlapHorizontal && Math.abs(layer.transform.y - otherBottom) < EDGE_THRESHOLD;
+          default:
+            return false;
+        }
+      });
+
+      // Update current layer
       updateLayer(project.id, layerId, {
         dimensions: {
           width: size.width,
@@ -371,6 +412,77 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
           y: size.y,
         },
       });
+
+      // Update adjacent layer if found to fill the gap
+      if (adjacentLayer) {
+        const newRight = size.x + size.width;
+        const newBottom = size.y + size.height;
+        const adjacentRight = adjacentLayer.transform.x + adjacentLayer.dimensions.width;
+        const adjacentBottom = adjacentLayer.transform.y + adjacentLayer.dimensions.height;
+
+        switch (edge) {
+          case 'right': {
+            // Adjacent tile should start exactly where current tile ends
+            const newAdjacentWidth = adjacentRight - newRight;
+            if (newAdjacentWidth > MIN_DIMENSION) {
+              updateLayer(project.id, adjacentLayer.id, {
+                dimensions: {
+                  width: newAdjacentWidth,
+                  height: adjacentLayer.dimensions.height,
+                },
+                transform: {
+                  ...adjacentLayer.transform,
+                  x: newRight,
+                },
+              });
+            }
+            break;
+          }
+          case 'left': {
+            // Adjacent tile should end exactly where current tile starts
+            const newAdjacentWidth = size.x - adjacentLayer.transform.x;
+            if (newAdjacentWidth > MIN_DIMENSION) {
+              updateLayer(project.id, adjacentLayer.id, {
+                dimensions: {
+                  width: newAdjacentWidth,
+                  height: adjacentLayer.dimensions.height,
+                },
+              });
+            }
+            break;
+          }
+          case 'bottom': {
+            // Adjacent tile should start exactly where current tile ends
+            const newAdjacentHeight = adjacentBottom - newBottom;
+            if (newAdjacentHeight > MIN_DIMENSION) {
+              updateLayer(project.id, adjacentLayer.id, {
+                dimensions: {
+                  width: adjacentLayer.dimensions.width,
+                  height: newAdjacentHeight,
+                },
+                transform: {
+                  ...adjacentLayer.transform,
+                  y: newBottom,
+                },
+              });
+            }
+            break;
+          }
+          case 'top': {
+            // Adjacent tile should end exactly where current tile starts
+            const newAdjacentHeight = size.y - adjacentLayer.transform.y;
+            if (newAdjacentHeight > MIN_DIMENSION) {
+              updateLayer(project.id, adjacentLayer.id, {
+                dimensions: {
+                  width: adjacentLayer.dimensions.width,
+                  height: newAdjacentHeight,
+                },
+              });
+            }
+            break;
+          }
+        }
+      }
     },
     [project, updateLayer]
   );

@@ -22,7 +22,8 @@ interface PhotoLayerProps {
   ) => void;
   onResize: (
     layerId: string,
-    size: { width: number; height: number; x: number; y: number }
+    size: { width: number; height: number; x: number; y: number },
+    edge: 'left' | 'right' | 'top' | 'bottom'
   ) => void;
   onDelete?: (layerId: string) => void;
   viewportScale?: number;
@@ -96,8 +97,8 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
   }, [viewportScale, viewport]);
 
   const notifyResize = useCallback(
-    (size: { width: number; height: number; x: number; y: number }) => {
-      onResize(layer.id, size);
+    (size: { width: number; height: number; x: number; y: number }, edge: 'left' | 'right' | 'top' | 'bottom') => {
+      onResize(layer.id, size, edge);
     },
     [layer.id, onResize]
   );
@@ -110,9 +111,8 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
     .onUpdate((event) => {
       const delta = event.translationX / viewport.value;
       const nextWidth = Math.max(MIN_DIMENSION, resizeStartWidth.value - delta);
-      const applied = resizeStartWidth.value - nextWidth;
       width.value = nextWidth;
-      translateX.value = resizeStartX.value + applied;
+      translateX.value = resizeStartX.value + (resizeStartWidth.value - nextWidth);
     })
     .onEnd(() => {
       runOnJS(notifyResize)({
@@ -120,7 +120,7 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
         height: height.value,
         x: translateX.value,
         y: translateY.value,
-      });
+      }, 'left');
     });
 
   const rightHandleGesture = Gesture.Pan()
@@ -137,7 +137,7 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
         height: height.value,
         x: translateX.value,
         y: translateY.value,
-      });
+      }, 'right');
     });
 
   const topHandleGesture = Gesture.Pan()
@@ -148,9 +148,8 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
     .onUpdate((event) => {
       const delta = event.translationY / viewport.value;
       const nextHeight = Math.max(MIN_DIMENSION, resizeStartHeight.value - delta);
-      const applied = resizeStartHeight.value - nextHeight;
       height.value = nextHeight;
-      translateY.value = resizeStartY.value + applied;
+      translateY.value = resizeStartY.value + (resizeStartHeight.value - nextHeight);
     })
     .onEnd(() => {
       runOnJS(notifyResize)({
@@ -158,7 +157,7 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
         height: height.value,
         x: translateX.value,
         y: translateY.value,
-      });
+      }, 'top');
     });
 
   const bottomHandleGesture = Gesture.Pan()
@@ -175,7 +174,7 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
         height: height.value,
         x: translateX.value,
         y: translateY.value,
-      });
+      }, 'bottom');
     });
 
   const panGesture = Gesture.Pan()
@@ -278,16 +277,15 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
   }));
 
   const imageStyle = useAnimatedStyle(() => {
-    const displayWidth = width.value * viewport.value;
-    const displayHeight = height.value * viewport.value;
-
     if (!layer.crop) {
       return {
-        width: displayWidth,
-        height: displayHeight,
+        width: '100%',
+        height: '100%',
       };
     }
 
+    const displayWidth = width.value * viewport.value;
+    const displayHeight = height.value * viewport.value;
     const cropWidth = layer.crop.width;
     const cropHeight = layer.crop.height;
 
