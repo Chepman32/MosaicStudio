@@ -9,40 +9,50 @@ import { useTheme } from '../../theme/ThemeContext';
 
 interface BottomControlBarProps {
   selectedLayerId: string | null;
-  onTemplates: () => void;
   onBackgrounds: () => void;
-  onLayers: () => void;
-  onFilters?: () => void;
+  onShuffle?: () => void;
+  onSticker?: () => void;
+  onWatermark?: () => void;
   onCrop?: () => void;
-  onFlip?: () => void;
+  onFilters?: () => void;
+  onSwap?: () => void;
   onDelete?: () => void;
 }
+
+type ButtonConfig = {
+  icon: string;
+  label: string;
+  onPress?: () => void;
+  destructive?: boolean;
+};
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const BottomControlBar: React.FC<BottomControlBarProps> = ({
   selectedLayerId,
-  onTemplates,
   onBackgrounds,
-  onLayers,
+  onShuffle,
+  onSticker,
+  onWatermark,
   onFilters,
   onCrop,
-  onFlip,
+  onSwap,
   onDelete,
 }) => {
   const theme = useTheme();
 
-  const defaultButtons = [
-    { icon: '⊞', label: 'Templates', onPress: onTemplates },
-    { icon: '◐', label: 'Backgrounds', onPress: onBackgrounds },
-    { icon: '⧉', label: 'Layers', onPress: onLayers },
+  const defaultButtons: ButtonConfig[] = [
+    { icon: '◐', label: 'Background', onPress: onBackgrounds },
+    { icon: '🔀', label: 'Shuffle', onPress: onShuffle },
+    { icon: '😊', label: 'Sticker', onPress: onSticker },
+    { icon: '©', label: 'Watermark', onPress: onWatermark },
   ];
 
-  const editingButtons = [
-    { icon: '✨', label: 'Filters', onPress: onFilters },
+  const editingButtons: ButtonConfig[] = [
     { icon: '⊡', label: 'Crop', onPress: onCrop },
-    { icon: '⇄', label: 'Flip', onPress: onFlip },
-    { icon: '🗑', label: 'Delete', onPress: onDelete, destructive: true },
+    { icon: '✨', label: 'Filter', onPress: onFilters },
+    { icon: '⇄', label: 'Swap', onPress: onSwap },
+    { icon: '🗑', label: 'Remove', onPress: onDelete, destructive: true },
   ];
 
   const buttons = selectedLayerId ? editingButtons : defaultButtons;

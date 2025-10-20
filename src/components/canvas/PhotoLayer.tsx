@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -9,6 +9,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
 
+const MIN_DIMENSION = 60;
+const HANDLE_SIZE = 20;
+
 interface PhotoLayerProps {
   layer: PhotoLayerType;
   isSelected: boolean;
@@ -17,8 +20,14 @@ interface PhotoLayerProps {
     layerId: string,
     transform: PhotoLayerType['transform']
   ) => void;
+  onResize: (
+    layerId: string,
+    size: { width: number; height: number; x: number; y: number }
+  ) => void;
   onDelete?: (layerId: string) => void;
   viewportScale?: number;
+  isSwapSource?: boolean;
+  isSwapModeActive?: boolean;
 }
 
 export const PhotoLayer: React.FC<PhotoLayerProps> = ({
@@ -26,8 +35,11 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
   isSelected,
   onSelect,
   onTransformUpdate,
+  onResize,
   onDelete: _onDelete,
   viewportScale = 1,
+  isSwapSource = false,
+  isSwapModeActive = false,
 }) => {
   const translateX = useSharedValue(layer.transform.x);
   const translateY = useSharedValue(layer.transform.y);
@@ -38,6 +50,12 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
   const startX = useSharedValue(layer.transform.x);
   const startY = useSharedValue(layer.transform.y);
   const viewport = useSharedValue(Math.max(viewportScale, 0.0001));
+  const width = useSharedValue(layer.dimensions.width);
+  const height = useSharedValue(layer.dimensions.height);
+  const resizeStartWidth = useSharedValue(layer.dimensions.width);
+  const resizeStartHeight = useSharedValue(layer.dimensions.height);
+  const resizeStartX = useSharedValue(layer.transform.x);
+  const resizeStartY = useSharedValue(layer.transform.y);
 
   useEffect(() => {
     translateX.value = layer.transform.x;
@@ -46,22 +64,119 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
     rotation.value = layer.transform.rotation;
     startX.value = layer.transform.x;
     startY.value = layer.transform.y;
+    width.value = layer.dimensions.width;
+    height.value = layer.dimensions.height;
+    resizeStartWidth.value = layer.dimensions.width;
+    resizeStartHeight.value = layer.dimensions.height;
+    resizeStartX.value = layer.transform.x;
+    resizeStartY.value = layer.transform.y;
   }, [
     layer.transform.x,
     layer.transform.y,
     layer.transform.scale,
     layer.transform.rotation,
+    layer.dimensions.width,
+    layer.dimensions.height,
     translateX,
     translateY,
     scale,
     rotation,
     startX,
     startY,
+    width,
+    height,
+    resizeStartWidth,
+    resizeStartHeight,
+    resizeStartX,
+    resizeStartY,
   ]);
 
   useEffect(() => {
     viewport.value = Math.max(viewportScale, 0.0001);
   }, [viewportScale, viewport]);
+
+  const notifyResize = useCallback(
+    (size: { width: number; height: number; x: number; y: number }) => {
+      onResize(layer.id, size);
+    },
+    [layer.id, onResize]
+  );
+
+  const leftHandleGesture = Gesture.Pan()
+    .onStart(() => {
+      resizeStartWidth.value = width.value;
+      resizeStartX.value = translateX.value;
+    })
+    .onUpdate((event) => {
+      const delta = event.translationX / viewport.value;
+      const nextWidth = Math.max(MIN_DIMENSION, resizeStartWidth.value - delta);
+      const applied = resizeStartWidth.value - nextWidth;
+      width.value = nextWidth;
+      translateX.value = resizeStartX.value + applied;
+    })
+    .onEnd(() => {
+      runOnJS(notifyResize)({
+        width: width.value,
+        height: height.value,
+        x: translateX.value,
+        y: translateY.value,
+      });
+    });
+
+  const rightHandleGesture = Gesture.Pan()
+    .onStart(() => {
+      resizeStartWidth.value = width.value;
+    })
+    .onUpdate((event) => {
+      const delta = event.translationX / viewport.value;
+      width.value = Math.max(MIN_DIMENSION, resizeStartWidth.value + delta);
+    })
+    .onEnd(() => {
+      runOnJS(notifyResize)({
+        width: width.value,
+        height: height.value,
+        x: translateX.value,
+        y: translateY.value,
+      });
+    });
+
+  const topHandleGesture = Gesture.Pan()
+    .onStart(() => {
+      resizeStartHeight.value = height.value;
+      resizeStartY.value = translateY.value;
+    })
+    .onUpdate((event) => {
+      const delta = event.translationY / viewport.value;
+      const nextHeight = Math.max(MIN_DIMENSION, resizeStartHeight.value - delta);
+      const applied = resizeStartHeight.value - nextHeight;
+      height.value = nextHeight;
+      translateY.value = resizeStartY.value + applied;
+    })
+    .onEnd(() => {
+      runOnJS(notifyResize)({
+        width: width.value,
+        height: height.value,
+        x: translateX.value,
+        y: translateY.value,
+      });
+    });
+
+  const bottomHandleGesture = Gesture.Pan()
+    .onStart(() => {
+      resizeStartHeight.value = height.value;
+    })
+    .onUpdate((event) => {
+      const delta = event.translationY / viewport.value;
+      height.value = Math.max(MIN_DIMENSION, resizeStartHeight.value + delta);
+    })
+    .onEnd(() => {
+      runOnJS(notifyResize)({
+        width: width.value,
+        height: height.value,
+        x: translateX.value,
+        y: translateY.value,
+      });
+    });
 
   const panGesture = Gesture.Pan()
     .onStart(() => {
@@ -115,6 +230,11 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
       });
     });
 
+  const tapGesture = Gesture.Tap()
+    .onStart(() => {
+      runOnJS(onSelect)(layer.id);
+    });
+
   const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
     .onStart(() => {
@@ -129,11 +249,22 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
       });
     });
 
+  tapGesture.requireExternalGestureToFail(doubleTapGesture);
+  panGesture.requireExternalGestureToFail(leftHandleGesture);
+  panGesture.requireExternalGestureToFail(rightHandleGesture);
+  panGesture.requireExternalGestureToFail(topHandleGesture);
+  panGesture.requireExternalGestureToFail(bottomHandleGesture);
+
   const composed = Gesture.Simultaneous(
+    Gesture.Exclusive(doubleTapGesture, tapGesture),
     panGesture,
-    Gesture.Simultaneous(pinchGesture, rotationGesture),
-    doubleTapGesture
+    Gesture.Simultaneous(pinchGesture, rotationGesture)
   );
+
+  const sizeStyle = useAnimatedStyle(() => ({
+    width: width.value * viewport.value,
+    height: height.value * viewport.value,
+  }));
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -146,18 +277,19 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
     zIndex: layer.zIndex,
   }));
 
-  const imageStyle = React.useMemo(() => {
+  const imageStyle = useAnimatedStyle(() => {
+    const displayWidth = width.value * viewport.value;
+    const displayHeight = height.value * viewport.value;
+
     if (!layer.crop) {
       return {
-        width: layer.dimensions.width * viewportScale,
-        height: layer.dimensions.height * viewportScale,
+        width: displayWidth,
+        height: displayHeight,
       };
     }
 
     const cropWidth = layer.crop.width;
     const cropHeight = layer.crop.height;
-    const displayWidth = layer.dimensions.width * viewportScale;
-    const displayHeight = layer.dimensions.height * viewportScale;
 
     return {
       width: displayWidth / cropWidth,
@@ -165,20 +297,39 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
       left: -(layer.crop.x * displayWidth) / cropWidth,
       top: -(layer.crop.y * displayHeight) / cropHeight,
     };
-  }, [layer.crop, layer.dimensions, viewportScale]);
+  });
+
+  const leftHandleStyle = useAnimatedStyle(() => ({
+    left: -HANDLE_SIZE / 2,
+    top: (height.value * viewport.value) / 2 - HANDLE_SIZE / 2,
+  }));
+
+  const rightHandleStyle = useAnimatedStyle(() => ({
+    right: -HANDLE_SIZE / 2,
+    top: (height.value * viewport.value) / 2 - HANDLE_SIZE / 2,
+  }));
+
+  const topHandleStyle = useAnimatedStyle(() => ({
+    top: -HANDLE_SIZE / 2,
+    left: (width.value * viewport.value) / 2 - HANDLE_SIZE / 2,
+  }));
+
+  const bottomHandleStyle = useAnimatedStyle(() => ({
+    bottom: -HANDLE_SIZE / 2,
+    left: (width.value * viewport.value) / 2 - HANDLE_SIZE / 2,
+  }));
 
   return (
     <GestureDetector gesture={composed}>
       <Animated.View
         style={[
           styles.photo,
-          {
-            width: layer.dimensions.width * viewportScale,
-            height: layer.dimensions.height * viewportScale,
-            overflow: 'hidden',
-          },
+          sizeStyle,
+          styles.photoContent,
           animatedStyle,
           isSelected && styles.selected,
+          isSwapSource && styles.swapSource,
+          isSwapModeActive && !isSwapSource && styles.swapCandidate,
         ]}
       >
         <Animated.Image
@@ -189,6 +340,46 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
           ]}
           resizeMode="cover"
         />
+        {isSelected && (
+          <>
+            <GestureDetector gesture={leftHandleGesture}>
+              <Animated.View
+                style={[
+                  styles.handle,
+                  styles.handleVertical,
+                  leftHandleStyle,
+                ]}
+              />
+            </GestureDetector>
+            <GestureDetector gesture={rightHandleGesture}>
+              <Animated.View
+                style={[
+                  styles.handle,
+                  styles.handleVertical,
+                  rightHandleStyle,
+                ]}
+              />
+            </GestureDetector>
+            <GestureDetector gesture={topHandleGesture}>
+              <Animated.View
+                style={[
+                  styles.handle,
+                  styles.handleHorizontal,
+                  topHandleStyle,
+                ]}
+              />
+            </GestureDetector>
+            <GestureDetector gesture={bottomHandleGesture}>
+              <Animated.View
+                style={[
+                  styles.handle,
+                  styles.handleHorizontal,
+                  bottomHandleStyle,
+                ]}
+              />
+            </GestureDetector>
+          </>
+        )}
       </Animated.View>
     </GestureDetector>
   );
@@ -198,11 +389,36 @@ const styles = StyleSheet.create({
   photo: {
     position: 'absolute',
   },
+  photoContent: {
+    overflow: 'hidden',
+  },
   image: {
     position: 'absolute',
   },
   selected: {
     borderWidth: 2,
     borderColor: '#9B7FFF',
+  },
+  swapSource: {
+    borderColor: '#FF8F4C',
+  },
+  swapCandidate: {
+    borderWidth: 2,
+    borderColor: '#9B7FFF55',
+  },
+  handle: {
+    position: 'absolute',
+    backgroundColor: '#9B7FFF',
+    borderRadius: HANDLE_SIZE / 2,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  handleVertical: {
+    width: HANDLE_SIZE,
+    height: HANDLE_SIZE,
+  },
+  handleHorizontal: {
+    width: HANDLE_SIZE,
+    height: HANDLE_SIZE,
   },
 });
