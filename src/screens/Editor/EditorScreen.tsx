@@ -346,6 +346,138 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
     [project, duplicateLayer]
   );
 
+  const handleLayerResizeUpdate = useCallback(
+    (
+      layerId: string,
+      size: { width: number; height: number; x: number; y: number },
+      edge: 'left' | 'right' | 'top' | 'bottom'
+    ) => {
+      if (!project) {
+        return;
+      }
+
+      const layer = project.layers.find(
+        (item): item is PhotoLayerType => 'sourceUri' in item && item.id === layerId
+      );
+
+      if (!layer) {
+        return;
+      }
+
+      console.log('handleLayerResizeUpdate called', { layerId, edge, size });
+
+      const EDGE_THRESHOLD = 20;
+
+      // Use the NEW size for the current layer
+      const currentRight = size.x + size.width;
+      const currentBottom = size.y + size.height;
+
+      // Find adjacent layer that shares this edge
+      const adjacentLayer = project.layers.find((item): item is PhotoLayerType => {
+        if (!('sourceUri' in item) || item.id === layerId) {
+          return false;
+        }
+
+        const otherRight = item.transform.x + item.dimensions.width;
+        const otherBottom = item.transform.y + item.dimensions.height;
+
+        const overlapVertical = !(
+          size.y >= otherBottom ||
+          currentBottom <= item.transform.y
+        );
+        const overlapHorizontal = !(
+          size.x >= otherRight ||
+          currentRight <= item.transform.x
+        );
+
+        switch (edge) {
+          case 'right':
+            return overlapVertical && Math.abs(currentRight - item.transform.x) < EDGE_THRESHOLD;
+          case 'left':
+            return overlapVertical && Math.abs(size.x - otherRight) < EDGE_THRESHOLD;
+          case 'bottom':
+            return overlapHorizontal && Math.abs(currentBottom - item.transform.y) < EDGE_THRESHOLD;
+          case 'top':
+            return overlapHorizontal && Math.abs(size.y - otherBottom) < EDGE_THRESHOLD;
+          default:
+            return false;
+        }
+      });
+
+      // Only update adjacent layer if found to fill the gap (without pushing to history)
+      // The current layer is handled by the animation in PhotoLayer component
+      if (adjacentLayer) {
+        console.log('Adjacent layer found:', adjacentLayer.id);
+        const newRight = size.x + size.width;
+        const newBottom = size.y + size.height;
+        const adjacentRight = adjacentLayer.transform.x + adjacentLayer.dimensions.width;
+        const adjacentBottom = adjacentLayer.transform.y + adjacentLayer.dimensions.height;
+
+        switch (edge) {
+          case 'right': {
+            const newAdjacentWidth = adjacentRight - newRight;
+            console.log('Right edge - newAdjacentWidth:', newAdjacentWidth, 'MIN:', MIN_DIMENSION);
+            if (newAdjacentWidth > MIN_DIMENSION) {
+              console.log('Updating adjacent layer on right');
+              updateLayer(project.id, adjacentLayer.id, {
+                dimensions: {
+                  width: newAdjacentWidth,
+                  height: adjacentLayer.dimensions.height,
+                },
+                transform: {
+                  ...adjacentLayer.transform,
+                  x: newRight,
+                },
+              });
+            }
+            break;
+          }
+          case 'left': {
+            const newAdjacentWidth = size.x - adjacentLayer.transform.x;
+            if (newAdjacentWidth > MIN_DIMENSION) {
+              updateLayer(project.id, adjacentLayer.id, {
+                dimensions: {
+                  width: newAdjacentWidth,
+                  height: adjacentLayer.dimensions.height,
+                },
+              });
+            }
+            break;
+          }
+          case 'bottom': {
+            const newAdjacentHeight = adjacentBottom - newBottom;
+            if (newAdjacentHeight > MIN_DIMENSION) {
+              updateLayer(project.id, adjacentLayer.id, {
+                dimensions: {
+                  width: adjacentLayer.dimensions.width,
+                  height: newAdjacentHeight,
+                },
+                transform: {
+                  ...adjacentLayer.transform,
+                  y: newBottom,
+                },
+              });
+            }
+            break;
+          }
+          case 'top': {
+            const newAdjacentHeight = size.y - adjacentLayer.transform.y;
+            if (newAdjacentHeight > MIN_DIMENSION) {
+              updateLayer(project.id, adjacentLayer.id, {
+                dimensions: {
+                  width: adjacentLayer.dimensions.width,
+                  height: newAdjacentHeight,
+                },
+              });
+            }
+            break;
+          }
+        }
+      }
+    },
+    [project, updateLayer]
+  );
+
   const handleLayerResize = useCallback(
     (
       layerId: string,
@@ -608,6 +740,7 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
                   onSelect={handleLayerSelect}
                   onTransformUpdate={handleLayerTransformUpdate}
                   onResize={handleLayerResize}
+                  onResizeUpdate={handleLayerResizeUpdate}
                   onDelete={handleLayerDelete}
                   viewportScale={canvasScale}
                   isSwapSource={swapSourceLayerId === layer.id}

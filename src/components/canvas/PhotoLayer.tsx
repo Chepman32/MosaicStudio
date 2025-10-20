@@ -25,6 +25,11 @@ interface PhotoLayerProps {
     size: { width: number; height: number; x: number; y: number },
     edge: 'left' | 'right' | 'top' | 'bottom'
   ) => void;
+  onResizeUpdate?: (
+    layerId: string,
+    size: { width: number; height: number; x: number; y: number },
+    edge: 'left' | 'right' | 'top' | 'bottom'
+  ) => void;
   onDelete?: (layerId: string) => void;
   viewportScale?: number;
   isSwapSource?: boolean;
@@ -37,6 +42,7 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
   onSelect,
   onTransformUpdate,
   onResize,
+  onResizeUpdate,
   onDelete: _onDelete,
   viewportScale = 1,
   isSwapSource = false,
@@ -59,14 +65,14 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
   const resizeStartY = useSharedValue(layer.transform.y);
 
   useEffect(() => {
-    translateX.value = layer.transform.x;
-    translateY.value = layer.transform.y;
+    translateX.value = withSpring(layer.transform.x, { damping: 50, stiffness: 300 });
+    translateY.value = withSpring(layer.transform.y, { damping: 50, stiffness: 300 });
     scale.value = layer.transform.scale;
     rotation.value = layer.transform.rotation;
     startX.value = layer.transform.x;
     startY.value = layer.transform.y;
-    width.value = layer.dimensions.width;
-    height.value = layer.dimensions.height;
+    width.value = withSpring(layer.dimensions.width, { damping: 50, stiffness: 300 });
+    height.value = withSpring(layer.dimensions.height, { damping: 50, stiffness: 300 });
     resizeStartWidth.value = layer.dimensions.width;
     resizeStartHeight.value = layer.dimensions.height;
     resizeStartX.value = layer.transform.x;
@@ -103,6 +109,15 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
     [layer.id, onResize]
   );
 
+  const notifyResizeUpdate = useCallback(
+    (size: { width: number; height: number; x: number; y: number }, edge: 'left' | 'right' | 'top' | 'bottom') => {
+      if (onResizeUpdate) {
+        onResizeUpdate(layer.id, size, edge);
+      }
+    },
+    [layer.id, onResizeUpdate]
+  );
+
   const leftHandleGesture = Gesture.Pan()
     .onStart(() => {
       resizeStartWidth.value = width.value;
@@ -113,6 +128,13 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
       const nextWidth = Math.max(MIN_DIMENSION, resizeStartWidth.value - delta);
       width.value = nextWidth;
       translateX.value = resizeStartX.value + (resizeStartWidth.value - nextWidth);
+
+      runOnJS(notifyResizeUpdate)({
+        width: width.value,
+        height: height.value,
+        x: translateX.value,
+        y: translateY.value,
+      }, 'left');
     })
     .onEnd(() => {
       runOnJS(notifyResize)({
@@ -130,6 +152,13 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
     .onUpdate((event) => {
       const delta = event.translationX / viewport.value;
       width.value = Math.max(MIN_DIMENSION, resizeStartWidth.value + delta);
+
+      runOnJS(notifyResizeUpdate)({
+        width: width.value,
+        height: height.value,
+        x: translateX.value,
+        y: translateY.value,
+      }, 'right');
     })
     .onEnd(() => {
       runOnJS(notifyResize)({
@@ -150,6 +179,13 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
       const nextHeight = Math.max(MIN_DIMENSION, resizeStartHeight.value - delta);
       height.value = nextHeight;
       translateY.value = resizeStartY.value + (resizeStartHeight.value - nextHeight);
+
+      runOnJS(notifyResizeUpdate)({
+        width: width.value,
+        height: height.value,
+        x: translateX.value,
+        y: translateY.value,
+      }, 'top');
     })
     .onEnd(() => {
       runOnJS(notifyResize)({
@@ -167,6 +203,13 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
     .onUpdate((event) => {
       const delta = event.translationY / viewport.value;
       height.value = Math.max(MIN_DIMENSION, resizeStartHeight.value + delta);
+
+      runOnJS(notifyResizeUpdate)({
+        width: width.value,
+        height: height.value,
+        x: translateX.value,
+        y: translateY.value,
+      }, 'bottom');
     })
     .onEnd(() => {
       runOnJS(notifyResize)({
