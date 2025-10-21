@@ -1,12 +1,90 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { LayoutChangeEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInRight } from 'react-native-reanimated';
+import { Canvas, Path, Rect } from '@shopify/react-native-skia';
 
 import { SAMPLE_TEMPLATES } from '../../constants/templates';
 import { useNavigation } from '../../navigation/NavigationContext';
 import { useTheme } from '../../theme/ThemeContext';
 import { useUIStore } from '../../stores/useUIStore';
 import { usePurchaseStore } from '../../stores/usePurchaseStore';
+import { createClipForMask } from '../../utils/maskUtils';
+import type { TemplateDefinition } from '../../types/projects';
+
+interface TemplateFramePreviewProps {
+  frame: TemplateDefinition['layout']['frames'][number];
+  canvasSize: { width: number; height: number };
+  previewSize: { width: number; height: number };
+}
+
+const TemplateFramePreview: React.FC<TemplateFramePreviewProps> = ({
+  frame,
+  canvasSize,
+  previewSize,
+}) => {
+  if (previewSize.width === 0 || previewSize.height === 0) {
+    return null;
+  }
+
+  const widthPx = (frame.size.width / canvasSize.width) * previewSize.width;
+  const heightPx = (frame.size.height / canvasSize.height) * previewSize.height;
+  const left = (frame.position.x / canvasSize.width) * previewSize.width;
+  const top = (frame.position.y / canvasSize.height) * previewSize.height;
+
+  const clipPath = useMemo(
+    () => createClipForMask(frame.mask ?? null, widthPx, heightPx),
+    [frame.mask, widthPx, heightPx],
+  );
+
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        styles.framePreview,
+        {
+          left,
+          top,
+          width: widthPx,
+          height: heightPx,
+          transform: [{ rotate: `${frame.rotation}rad` }],
+        },
+      ]}
+    >
+      <Canvas style={StyleSheet.absoluteFill}>
+        {clipPath ? (
+          <>
+            <Path path={clipPath} color="rgba(155, 127, 255, 0.15)" />
+            <Path
+              path={clipPath}
+              color="rgba(155, 127, 255, 0.6)"
+              style="stroke"
+              strokeWidth={2}
+            />
+          </>
+        ) : (
+          <>
+            <Rect
+              x={0}
+              y={0}
+              width={widthPx}
+              height={heightPx}
+              color="rgba(155, 127, 255, 0.15)"
+            />
+            <Rect
+              x={0}
+              y={0}
+              width={widthPx}
+              height={heightPx}
+              color="rgba(155, 127, 255, 0.6)"
+              style="stroke"
+              strokeWidth={2}
+            />
+          </>
+        )}
+      </Canvas>
+    </View>
+  );
+};
 
 export const TemplatePreviewRow: React.FC = () => {
   const theme = useTheme();
@@ -16,6 +94,12 @@ export const TemplatePreviewRow: React.FC = () => {
   const isPremiumUnlocked = usePurchaseStore((state) =>
     state.isUnlocked('premiumTemplates'),
   );
+  const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
+
+  const handlePreviewLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setPreviewSize({ width, height });
+  };
 
   const handleTemplatePress = (templateId: string, isPremium: boolean) => {
     if (isPremium && !isPremiumUnlocked) {
@@ -88,22 +172,17 @@ export const TemplatePreviewRow: React.FC = () => {
                     overflow: 'hidden',
                   },
                 ]}
+                onLayout={handlePreviewLayout}
               >
                 {template.layout.frames.map((frame) => (
-                  <View
+                  <TemplateFramePreview
                     key={frame.id}
-                    style={{
-                      position: 'absolute',
-                      left: (frame.position.x / template.layout.canvas.width) * 100 + '%',
-                      top: (frame.position.y / template.layout.canvas.height) * 100 + '%',
-                      width: (frame.size.width / template.layout.canvas.width) * 100 + '%',
-                      height: (frame.size.height / template.layout.canvas.height) * 100 + '%',
-                      borderWidth: 2,
-                      borderColor: 'rgba(155, 127, 255, 0.6)',
-                      borderRadius: 6,
-                      backgroundColor: 'rgba(155, 127, 255, 0.1)',
-                      transform: [{ rotate: `${frame.rotation}rad` }],
+                    frame={frame}
+                    canvasSize={{
+                      width: template.layout.canvas.width,
+                      height: template.layout.canvas.height,
                     }}
+                    previewSize={previewSize}
                   />
                 ))}
               </View>
@@ -159,6 +238,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  framePreview: {
+    position: 'absolute',
   },
   cardTitle: {
     fontSize: 16,

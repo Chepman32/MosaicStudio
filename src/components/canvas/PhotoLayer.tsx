@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -6,11 +6,77 @@ import Animated, {
   useSharedValue,
   withSpring,
   runOnJS,
+  useAnimatedReaction,
 } from 'react-native-reanimated';
+import {
+  Canvas,
+  Group,
+  Image as SkiaImage,
+  useImage,
+} from '@shopify/react-native-skia';
 import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
+import { createClipForMask } from '../../utils/maskUtils';
 
 const MIN_DIMENSION = 60;
 const HANDLE_SIZE = 20;
+
+interface PhotoLayerImageProps {
+  layer: PhotoLayerType;
+  width: number;
+  height: number;
+}
+
+const PhotoLayerImage: React.FC<PhotoLayerImageProps> = ({ layer, width, height }) => {
+  const image = useImage(layer.sourceUri);
+
+  const clip = useMemo(
+    () => createClipForMask(layer.mask, width, height),
+    [layer.mask, width, height],
+  );
+
+  const { drawWidth, drawHeight, offsetX, offsetY } = useMemo(() => {
+    if (
+      !layer.crop ||
+      !Number.isFinite(layer.crop.width) ||
+      !Number.isFinite(layer.crop.height) ||
+      layer.crop.width <= 0 ||
+      layer.crop.height <= 0
+    ) {
+      return {
+        drawWidth: width,
+        drawHeight: height,
+        offsetX: 0,
+        offsetY: 0,
+      };
+    }
+
+    const drawWidth = width / layer.crop.width;
+    const drawHeight = height / layer.crop.height;
+    const offsetX = -(layer.crop.x * width) / layer.crop.width;
+    const offsetY = -(layer.crop.y * height) / layer.crop.height;
+
+    return { drawWidth, drawHeight, offsetX, offsetY };
+  }, [layer.crop, width, height]);
+
+  if (!image || width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return (
+    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Group clip={clip ?? undefined}>
+        <SkiaImage
+          image={image}
+          x={offsetX}
+          y={offsetY}
+          width={drawWidth}
+          height={drawHeight}
+          fit="cover"
+        />
+      </Group>
+    </Canvas>
+  );
+};
 
 interface PhotoLayerProps {
   layer: PhotoLayerType;
@@ -63,6 +129,14 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
   const resizeStartHeight = useSharedValue(layer.dimensions.height);
   const resizeStartX = useSharedValue(layer.transform.x);
   const resizeStartY = useSharedValue(layer.transform.y);
+  const [displaySize, setDisplaySize] = useState(() => ({
+    width: layer.dimensions.width * viewportScale,
+    height: layer.dimensions.height * viewportScale,
+  }));
+
+  const updateDisplaySize = useCallback((next: { width: number; height: number }) => {
+    setDisplaySize(next);
+  }, []);
 
   useEffect(() => {
     translateX.value = withSpring(layer.transform.x, { damping: 50, stiffness: 300 });
@@ -101,6 +175,33 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
   useEffect(() => {
     viewport.value = Math.max(viewportScale, 0.0001);
   }, [viewportScale, viewport]);
+
+  useEffect(() => {
+    setDisplaySize({
+      width: layer.dimensions.width * viewportScale,
+      height: layer.dimensions.height * viewportScale,
+    });
+  }, [layer.dimensions.height, layer.dimensions.width, viewportScale]);
+
+  useAnimatedReaction(
+    () => ({
+      width: width.value * viewport.value,
+      height: height.value * viewport.value,
+    }),
+    (current, previous) => {
+      if (!previous) {
+        runOnJS(updateDisplaySize)(current);
+        return;
+      }
+      if (
+        Math.abs(current.width - previous.width) > 0.5 ||
+        Math.abs(current.height - previous.height) > 0.5
+      ) {
+        runOnJS(updateDisplaySize)(current);
+      }
+    },
+    [updateDisplaySize],
+  );
 
   const notifyResize = useCallback(
     (size: { width: number; height: number; x: number; y: number }, edge: 'left' | 'right' | 'top' | 'bottom') => {
@@ -319,27 +420,6 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
     zIndex: layer.zIndex,
   }));
 
-  const imageStyle = useAnimatedStyle(() => {
-    if (!layer.crop) {
-      return {
-        width: '100%',
-        height: '100%',
-      };
-    }
-
-    const displayWidth = width.value * viewport.value;
-    const displayHeight = height.value * viewport.value;
-    const cropWidth = layer.crop.width;
-    const cropHeight = layer.crop.height;
-
-    return {
-      width: displayWidth / cropWidth,
-      height: displayHeight / cropHeight,
-      left: -(layer.crop.x * displayWidth) / cropWidth,
-      top: -(layer.crop.y * displayHeight) / cropHeight,
-    };
-  });
-
   const leftHandleStyle = useAnimatedStyle(() => ({
     left: -HANDLE_SIZE / 2,
     top: (height.value * viewport.value) / 2 - HANDLE_SIZE / 2,
@@ -373,13 +453,10 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
           isSwapModeActive && !isSwapSource && styles.swapCandidate,
         ]}
       >
-        <Animated.Image
-          source={{ uri: layer.sourceUri }}
-          style={[
-            styles.image,
-            imageStyle,
-          ]}
-          resizeMode="cover"
+        <PhotoLayerImage
+          layer={layer}
+          width={displaySize.width}
+          height={displaySize.height}
         />
         {isSelected && (
           <>

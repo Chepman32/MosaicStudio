@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Canvas, Group, Image, useImage, Paint } from '@shopify/react-native-skia';
+import { Canvas, Group, Image, useImage } from '@shopify/react-native-skia';
 import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
+import { createClipForMask } from '../../utils/maskUtils';
 
 interface CollageCanvasProps {
   width: number;
@@ -45,6 +46,10 @@ const PhotoLayerRenderer: React.FC<PhotoLayerRendererProps> = ({ layer }) => {
 
   const { x, y, scale, rotation } = layer.transform;
   const { width, height } = layer.dimensions;
+  const clip = useMemo(
+    () => createClipForMask(layer.mask, width, height),
+    [layer.mask, width, height],
+  );
 
   return (
     <Group
@@ -55,6 +60,7 @@ const PhotoLayerRenderer: React.FC<PhotoLayerRendererProps> = ({ layer }) => {
         { rotate: rotation },
       ]}
       opacity={layer.opacity}
+      clip={clip ?? undefined}
     >
       <Image
         image={image}

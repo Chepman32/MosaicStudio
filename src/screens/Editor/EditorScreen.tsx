@@ -434,13 +434,17 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
           }
           case 'left': {
             const newAdjacentWidth = size.x - adjacentLayer.transform.x;
+            console.log('Left edge - current tile x:', size.x, 'adjacent x:', adjacentLayer.transform.x, 'newAdjacentWidth:', newAdjacentWidth, 'MIN:', MIN_DIMENSION);
             if (newAdjacentWidth > MIN_DIMENSION) {
+              console.log('Updating adjacent layer on left - new width:', newAdjacentWidth);
               updateLayer(project.id, adjacentLayer.id, {
                 dimensions: {
                   width: newAdjacentWidth,
                   height: adjacentLayer.dimensions.height,
                 },
               });
+            } else {
+              console.log('NOT updating - width too small');
             }
             break;
           }

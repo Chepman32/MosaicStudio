@@ -1,6 +1,7 @@
 import React from 'react';
-import { Canvas, Group, Image, useImage, rect, rrect, Paint, Skia } from '@shopify/react-native-skia';
+import { Canvas, Group, Image, useImage, rect, Skia } from '@shopify/react-native-skia';
 import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
+import { createClipForMask } from '../../utils/maskUtils';
 
 interface SkiaRendererProps {
   width: number;
@@ -51,6 +52,10 @@ const SkiaPhotoLayer: React.FC<SkiaPhotoLayerProps> = ({ layer }) => {
 
   const { x, y, scale, rotation } = layer.transform;
   const { width, height } = layer.dimensions;
+  const clip = React.useMemo(
+    () => createClipForMask(layer.mask, width, height),
+    [layer.mask, width, height],
+  );
 
   // Apply filters if any
   const paint = React.useMemo(() => {
@@ -74,6 +79,7 @@ const SkiaPhotoLayer: React.FC<SkiaPhotoLayerProps> = ({ layer }) => {
         { translateY: -height / 2 },
       ]}
       opacity={layer.opacity}
+      clip={clip ?? undefined}
     >
       <Image
         image={image}

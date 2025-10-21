@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Pressable, Text } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
+import { Canvas, Path, Rect } from '@shopify/react-native-skia';
 import type { PhotoLayer } from '../../types/projects';
+import { createClipForMask } from '../../utils/maskUtils';
 
 interface EmptyFrameProps {
   layer: PhotoLayer;
@@ -44,6 +46,14 @@ export const EmptyFrame: React.FC<EmptyFrameProps> = ({
     onPress(layer.id);
   };
 
+  const displayWidth = layer.dimensions.width * viewportScale;
+  const displayHeight = layer.dimensions.height * viewportScale;
+
+  const clipPath = useMemo(
+    () => createClipForMask(layer.mask, displayWidth, displayHeight),
+    [layer.mask, displayWidth, displayHeight],
+  );
+
   return (
     <AnimatedPressable
       onPressIn={handlePressIn}
@@ -58,6 +68,41 @@ export const EmptyFrame: React.FC<EmptyFrameProps> = ({
         animatedStyle,
       ]}
     >
+      <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+        {clipPath ? (
+          <>
+            <Path
+              path={clipPath}
+              color="rgba(200, 200, 200, 0.25)"
+            />
+            <Path
+              path={clipPath}
+              color="rgba(155, 127, 255, 0.5)"
+              style="stroke"
+              strokeWidth={2}
+            />
+          </>
+        ) : (
+          <>
+            <Rect
+              x={0}
+              y={0}
+              width={displayWidth}
+              height={displayHeight}
+              color="rgba(200, 200, 200, 0.25)"
+            />
+            <Rect
+              x={0}
+              y={0}
+              width={displayWidth}
+              height={displayHeight}
+              color="rgba(155, 127, 255, 0.5)"
+              style="stroke"
+              strokeWidth={2}
+            />
+          </>
+        )}
+      </Canvas>
       <Text style={styles.icon}>+</Text>
     </AnimatedPressable>
   );
@@ -66,13 +111,8 @@ export const EmptyFrame: React.FC<EmptyFrameProps> = ({
 const styles = StyleSheet.create({
   frame: {
     position: 'absolute',
-    backgroundColor: 'rgba(200, 200, 200, 0.3)',
-    borderWidth: 2,
-    borderColor: 'rgba(155, 127, 255, 0.5)',
-    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
   },
   icon: {
     fontSize: 48,
