@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Canvas, Group, Image, useImage } from '@shopify/react-native-skia';
+import { Canvas, Group, Image, Path, useImage } from '@shopify/react-native-skia';
 import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
-import { createClipForMask } from '../../utils/maskUtils';
+import { createClipForMask, getMaskStroke } from '../../utils/maskUtils';
 
 interface CollageCanvasProps {
   width: number;
@@ -50,6 +50,7 @@ const PhotoLayerRenderer: React.FC<PhotoLayerRendererProps> = ({ layer }) => {
     () => createClipForMask(layer.mask, width, height),
     [layer.mask, width, height],
   );
+  const stroke = useMemo(() => getMaskStroke(layer.mask, 1), [layer.mask]);
 
   return (
     <Group
@@ -70,6 +71,16 @@ const PhotoLayerRenderer: React.FC<PhotoLayerRendererProps> = ({ layer }) => {
         height={height}
         fit="cover"
       />
+      {clip && stroke ? (
+        <Path
+          path={clip}
+          style="stroke"
+          strokeWidth={stroke.width}
+          color={stroke.color}
+          strokeJoin={stroke.join}
+          strokeCap={stroke.cap}
+        />
+      ) : null}
     </Group>
   );
 };

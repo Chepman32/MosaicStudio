@@ -8,14 +8,9 @@ import Animated, {
   runOnJS,
   useAnimatedReaction,
 } from 'react-native-reanimated';
-import {
-  Canvas,
-  Group,
-  Image as SkiaImage,
-  useImage,
-} from '@shopify/react-native-skia';
+import { Canvas, Group, Image as SkiaImage, Path, useImage } from '@shopify/react-native-skia';
 import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
-import { createClipForMask } from '../../utils/maskUtils';
+import { createClipForMask, getMaskStroke } from '../../utils/maskUtils';
 
 const MIN_DIMENSION = 60;
 const HANDLE_SIZE = 20;
@@ -33,6 +28,16 @@ const PhotoLayerImage: React.FC<PhotoLayerImageProps> = ({ layer, width, height 
     () => createClipForMask(layer.mask, width, height),
     [layer.mask, width, height],
   );
+
+  const stroke = useMemo(() => {
+    if (width <= 0 || height <= 0) {
+      return null;
+    }
+    const scaleX = layer.dimensions.width === 0 ? 1 : width / layer.dimensions.width;
+    const scaleY = layer.dimensions.height === 0 ? 1 : height / layer.dimensions.height;
+    const scaleFactor = Math.min(scaleX, scaleY);
+    return getMaskStroke(layer.mask, scaleFactor);
+  }, [height, layer.dimensions.height, layer.dimensions.width, layer.mask, width]);
 
   const { drawWidth, drawHeight, offsetX, offsetY } = useMemo(() => {
     if (
@@ -73,6 +78,16 @@ const PhotoLayerImage: React.FC<PhotoLayerImageProps> = ({ layer, width, height 
           height={drawHeight}
           fit="cover"
         />
+        {clip && stroke ? (
+          <Path
+            path={clip}
+            style="stroke"
+            strokeWidth={stroke.width}
+            color={stroke.color}
+            strokeJoin={stroke.join}
+            strokeCap={stroke.cap}
+          />
+        ) : null}
       </Group>
     </Canvas>
   );

@@ -15,37 +15,63 @@ interface ShapeMaskPayload {
   orientation?: 'up' | 'down' | 'left' | 'right';
   inset?: number;
   cornerRadius?: number;
+  strokeWidth?: number;
+  strokeColor?: string;
+  strokeJoin?: 'miter' | 'round' | 'bevel';
+  strokeCap?: 'butt' | 'round' | 'square';
 }
 
-const buildPolygonPath = (
-  points: PolygonPoint[],
-  width: number,
-  height: number,
-  normalized: boolean,
-): SkPath | null => {
-  if (points.length < 3 || width <= 0 || height <= 0) {
+const buildPathFromPoints = (points: PolygonPoint[]): SkPath | null => {
+  if (points.length < 3) {
     return null;
   }
 
   const path = Skia.Path.Make();
   points.forEach((point, index) => {
-    const px = normalized ? point.x * width : point.x;
-    const py = normalized ? point.y * height : point.y;
     if (index === 0) {
-      path.moveTo(px, py);
+      path.moveTo(point.x, point.y);
     } else {
-      path.lineTo(px, py);
+      path.lineTo(point.x, point.y);
     }
   });
   path.close();
   return path;
 };
 
-const buildTrianglePath = (
+const convertPolygonPoints = (
   payload: ShapeMaskPayload,
   width: number,
   height: number,
-): SkPath | null => {
+): PolygonPoint[] | null => {
+  const points = Array.isArray(payload.points) ? payload.points : [];
+  if (points.length < 3) {
+    return null;
+  }
+
+  const normalized =
+    payload.units === 'normalized'
+      ? true
+      : payload.units === 'absolute'
+        ? false
+        : points.every(
+            (point) =>
+              point.x >= 0 &&
+              point.x <= 1 &&
+              point.y >= 0 &&
+              point.y <= 1,
+          );
+
+  return points.map((point) => ({
+    x: normalized ? point.x * width : point.x,
+    y: normalized ? point.y * height : point.y,
+  }));
+};
+
+const getTrianglePoints = (
+  payload: ShapeMaskPayload,
+  width: number,
+  height: number,
+): PolygonPoint[] | null => {
   const orientation = payload.orientation ?? 'up';
   const inset = Math.max(0, payload.inset ?? 0);
   const w = Math.max(0, width - inset * 2);
@@ -83,13 +109,32 @@ const buildTrianglePath = (
     }
   })();
 
-  return buildPolygonPath(points, 1, 1, false);
+  return points;
 };
 
-const buildRectPath = (width: number, height: number): SkPath => {
-  const path = Skia.Path.Make();
-  path.addRect(Skia.XYWHRect(0, 0, width, height));
-  return path;
+const getRectPoints = (width: number, height: number): PolygonPoint[] => [
+  { x: 0, y: 0 },
+  { x: width, y: 0 },
+  { x: width, y: height },
+  { x: 0, y: height },
+];
+
+const resolveShapePoints = (
+  payload: ShapeMaskPayload,
+  width: number,
+  height: number,
+): PolygonPoint[] | null => {
+  const kind = payload.kind ?? payload.shape ?? 'polygon';
+
+  switch (kind) {
+    case 'rect':
+      return getRectPoints(width, height);
+    case 'triangle':
+      return getTrianglePoints(payload, width, height);
+    case 'polygon':
+    default:
+      return convertPolygonPoints(payload, width, height);
+  }
 };
 
 export const createClipForMask = (
@@ -106,35 +151,98 @@ export const createClipForMask = (
   }
 
   const payload = (mask.payload ?? {}) as ShapeMaskPayload;
-  const kind = payload.kind ?? payload.shape ?? 'polygon';
-
-  switch (kind) {
-    case 'rect': {
-      return buildRectPath(width, height);
-    }
-    case 'triangle': {
-      return buildTrianglePath(payload, width, height);
-    }
-    case 'polygon':
-    default: {
-      const points = Array.isArray(payload.points) ? payload.points : [];
-      if (points.length < 3) {
-        return null;
-      }
-      const normalized =
-        payload.units === 'normalized'
-          ? true
-          : payload.units === 'absolute'
-            ? false
-            : points.every(
-                (point) =>
-                  point.x >= 0 &&
-                  point.x <= 1 &&
-                  point.y >= 0 &&
-                  point.y <= 1,
-              );
-
-      return buildPolygonPath(points, width, height, normalized);
-    }
+  const points = resolveShapePoints(payload, width, height);
+  if (!points) {
+    return null;
   }
+
+  return buildPathFromPoints(points);
+};
+
+interface MaskStrokeOptions {
+  width: number;
+  color: string;
+  join: 'miter' | 'round' | 'bevel';
+  cap: 'butt' | 'round' | 'square';
+}
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+export const getMaskStroke = (
+  mask: MaskData | null | undefined,
+  scale = 1,
+): MaskStrokeOptions | null => {
+  if (!mask || mask.type !== 'shape') {
+    return null;
+  }
+
+  const payload = (mask.payload ?? {}) as ShapeMaskPayload;
+  if (!isFiniteNumber(payload.strokeWidth) || payload.strokeWidth <= 0) {
+    return null;
+  }
+
+  const width = payload.strokeWidth * scale;
+
+  return {
+    width,
+    color: typeof payload.strokeColor === 'string' ? payload.strokeColor : '#FFFFFF',
+    join: payload.strokeJoin ?? 'miter',
+    cap: payload.strokeCap ?? 'butt',
+  };
+};
+
+const polygonCentroid = (points: PolygonPoint[]): { x: number; y: number } => {
+  let areaTwice = 0;
+  let centroidX = 0;
+  let centroidY = 0;
+  const count = points.length;
+
+  for (let i = 0; i < count; i += 1) {
+    const { x: x0, y: y0 } = points[i];
+    const { x: x1, y: y1 } = points[(i + 1) % count];
+    const cross = x0 * y1 - x1 * y0;
+    areaTwice += cross;
+    centroidX += (x0 + x1) * cross;
+    centroidY += (y0 + y1) * cross;
+  }
+
+  const area = areaTwice / 2;
+  if (Math.abs(area) < 1e-6) {
+    const sum = points.reduce(
+      (acc, point) => ({
+        x: acc.x + point.x,
+        y: acc.y + point.y,
+      }),
+      { x: 0, y: 0 },
+    );
+    return {
+      x: sum.x / count,
+      y: sum.y / count,
+    };
+  }
+
+  const factor = 1 / (6 * area);
+  return {
+    x: centroidX * factor,
+    y: centroidY * factor,
+  };
+};
+
+export const getMaskCentroid = (
+  mask: MaskData | null | undefined,
+  width: number,
+  height: number,
+): { x: number; y: number } | null => {
+  if (!mask || mask.type !== 'shape') {
+    return null;
+  }
+
+  const payload = (mask.payload ?? {}) as ShapeMaskPayload;
+  const points = resolveShapePoints(payload, width, height);
+  if (!points) {
+    return null;
+  }
+
+  return polygonCentroid(points);
 };

@@ -8,7 +8,7 @@ import { useNavigation } from '../../navigation/NavigationContext';
 import { useTheme } from '../../theme/ThemeContext';
 import { useUIStore } from '../../stores/useUIStore';
 import { usePurchaseStore } from '../../stores/usePurchaseStore';
-import { createClipForMask } from '../../utils/maskUtils';
+import { createClipForMask, getMaskStroke } from '../../utils/maskUtils';
 import type { TemplateDefinition } from '../../types/projects';
 
 interface TemplateFramePreviewProps {
@@ -36,6 +36,24 @@ const TemplateFramePreview: React.FC<TemplateFramePreviewProps> = ({
     [frame.mask, widthPx, heightPx],
   );
 
+  const previewScale = (() => {
+    if (previewSize.width === 0 || previewSize.height === 0) {
+      return 1;
+    }
+    const scaleX =
+      canvasSize.width === 0 ? 1 : previewSize.width / canvasSize.width;
+    const scaleY =
+      canvasSize.height === 0 ? 1 : previewSize.height / canvasSize.height;
+    return Math.min(scaleX, scaleY);
+  })();
+
+  const stroke = useMemo(() => {
+    if (!clipPath) {
+      return null;
+    }
+    return getMaskStroke(frame.mask ?? null, previewScale);
+  }, [clipPath, frame.mask, previewScale]);
+
   return (
     <View
       pointerEvents="none"
@@ -56,9 +74,11 @@ const TemplateFramePreview: React.FC<TemplateFramePreviewProps> = ({
             <Path path={clipPath} color="rgba(155, 127, 255, 0.15)" />
             <Path
               path={clipPath}
-              color="rgba(155, 127, 255, 0.6)"
+              color={stroke?.color ?? 'rgba(155, 127, 255, 0.6)'}
               style="stroke"
-              strokeWidth={2}
+              strokeWidth={stroke?.width ?? 2}
+              strokeJoin={stroke?.join}
+              strokeCap={stroke?.cap}
             />
           </>
         ) : (
