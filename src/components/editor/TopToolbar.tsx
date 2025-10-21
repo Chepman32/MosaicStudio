@@ -17,6 +17,7 @@ interface TopToolbarProps {
   onRename?: (name: string) => void;
   canUndo?: boolean;
   canRedo?: boolean;
+  showProjectName?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -31,6 +32,7 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
   onRename,
   canUndo = false,
   canRedo = false,
+  showProjectName = true,
 }) => {
   const theme = useTheme();
   const [isEditing, setIsEditing] = React.useState(false);
@@ -69,38 +71,47 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
         />
       </View>
 
-      <View style={styles.centerSection}>
-        {isEditing ? (
-          <TextInput
-            value={editedName}
-            onChangeText={setEditedName}
-            onBlur={handleNameSubmit}
-            onSubmitEditing={handleNameSubmit}
-            autoFocus
-            style={[
-              styles.nameInput,
-              {
-                color: theme.colors.textPrimary,
-                fontSize: 18,
-              },
-            ]}
-          />
-        ) : (
-          <Pressable onPress={() => setIsEditing(true)}>
-            <Text
+      <View
+        style={[
+          styles.centerSection,
+          !showProjectName || projectName.trim().length === 0
+            ? styles.centerSectionHidden
+            : null,
+        ]}
+      >
+        {showProjectName && projectName.trim().length > 0 ? (
+          isEditing ? (
+            <TextInput
+              value={editedName}
+              onChangeText={setEditedName}
+              onBlur={handleNameSubmit}
+              onSubmitEditing={handleNameSubmit}
+              autoFocus
               style={[
-                styles.projectName,
+                styles.nameInput,
                 {
                   color: theme.colors.textPrimary,
                   fontSize: 18,
                 },
               ]}
-              numberOfLines={1}
-            >
-              {projectName}
-            </Text>
-          </Pressable>
-        )}
+            />
+          ) : (
+            <Pressable onPress={() => setIsEditing(true)}>
+              <Text
+                style={[
+                  styles.projectName,
+                  {
+                    color: theme.colors.textPrimary,
+                    fontSize: 18,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {projectName}
+              </Text>
+            </Pressable>
+          )
+        ) : null}
       </View>
 
       <View style={styles.rightSection}>
@@ -182,6 +193,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     marginHorizontal: 16,
+  },
+  centerSectionHidden: {
+    flex: 0,
+    marginHorizontal: 0,
   },
   rightSection: {
     flexDirection: 'row',

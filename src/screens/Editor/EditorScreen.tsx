@@ -703,13 +703,15 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
         onRename={handleRename}
         canUndo={undoStack.length > 0}
         canRedo={redoStack.length > 0}
+        showProjectName={false}
       />
 
       <View
         style={[
           styles.canvasContainer,
           {
-            margin: theme.spacing(4),
+            margin: theme.spacing(2),
+            padding: theme.spacing(2),
             borderRadius: theme.radius.l,
             backgroundColor: project.canvas.background.value,
           },
