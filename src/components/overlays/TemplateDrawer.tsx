@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Modal,
@@ -8,11 +8,15 @@ import {
   Text,
   TouchableOpacity,
   View,
+  LayoutChangeEvent,
 } from 'react-native';
 
 import { SAMPLE_TEMPLATES } from '../../constants/templates';
+import { useNavigation } from '../../navigation/NavigationContext';
 import { useProjectStore } from '../../stores/useProjectStore';
 import { useTheme } from '../../theme/ThemeContext';
+import { TemplateLayoutPreview } from '../templates/TemplateLayoutPreview';
+import type { TemplateDefinition } from '../../types/projects';
 
 interface TemplateDrawerProps {
   isVisible: boolean;
@@ -24,17 +28,12 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
   onClose,
 }) => {
   const theme = useTheme();
+  const navigation = useNavigation();
   const createFromTemplate = useProjectStore(
     (state) => state.createFromTemplate,
   );
   const setCurrentProject = useProjectStore((state) => state.setCurrentProject);
-  const handleSelect = (templateId: string) => {
-    const template = SAMPLE_TEMPLATES.find((item) => item.id === templateId);
-    if (!template) return;
-    const project = createFromTemplate(template);
-    setCurrentProject(project.id);
-    onClose();
-  };
+  const [gridWidth, setGridWidth] = useState(0);
 
   const translateY = useRef(new Animated.Value(0)).current;
   const isClosingRef = useRef(false);
@@ -100,6 +99,39 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
     [closeWithAnimation, translateY],
   );
 
+  const handleSelect = useCallback(
+    (template: TemplateDefinition) => {
+      const project = createFromTemplate(template);
+      setCurrentProject(project.id);
+      navigation.navigate({
+        route: 'editor',
+        projectId: project.id,
+        templateId: template.id,
+      });
+      closeWithAnimation();
+    },
+    [closeWithAnimation, createFromTemplate, navigation, setCurrentProject],
+  );
+
+  const handleGridLayout = useCallback((event: LayoutChangeEvent) => {
+    setGridWidth(event.nativeEvent.layout.width);
+  }, []);
+
+  const columnSpacing = useMemo(() => theme.spacing(4), [theme]);
+  const gridLayout = useMemo(() => {
+    if (!gridWidth) {
+      return { cardWidth: undefined, columns: 2 };
+    }
+
+    const twoColumnWidth = (gridWidth - columnSpacing) / 2;
+
+    if (twoColumnWidth < 160) {
+      return { cardWidth: gridWidth, columns: 1 };
+    }
+
+    return { cardWidth: twoColumnWidth, columns: 2 };
+  }, [columnSpacing, gridWidth]);
+
   return (
     <Modal visible={isVisible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -125,20 +157,58 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
           >
             <View style={styles.handle} />
           </View>
-          {SAMPLE_TEMPLATES.map((template) => (
-            <TouchableOpacity
-              key={template.id}
-              onPress={() => handleSelect(template.id)}
-              style={{ marginBottom: theme.spacing(4) }}
-            >
-              <Text style={[styles.templateName, { color: theme.colors.textPrimary }]}>
-                {template.name}
-              </Text>
-              <Text style={{ color: theme.colors.textSecondary }}>
-                {template.category}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          <View
+            style={[
+              styles.grid,
+              {
+                marginTop: theme.spacing(2),
+              },
+            ]}
+            onLayout={handleGridLayout}
+          >
+            {SAMPLE_TEMPLATES.map((template, index) => {
+              const isLastColumn =
+                gridLayout.columns === 1
+                  ? true
+                  : (index + 1) % gridLayout.columns === 0;
+              return (
+                <TouchableOpacity
+                  key={template.id}
+                  onPress={() => handleSelect(template)}
+                  style={[
+                    styles.card,
+                    {
+                      borderRadius: theme.radius.l,
+                      padding: theme.spacing(3),
+                      marginBottom: theme.spacing(4),
+                      marginRight:
+                        isLastColumn || gridLayout.columns === 1
+                          ? 0
+                          : columnSpacing,
+                      width: gridLayout.cardWidth ?? '48%',
+                    },
+                  ]}
+                >
+                  <TemplateLayoutPreview
+                    template={template}
+                    borderRadius={theme.radius.m}
+                    style={{ marginBottom: theme.spacing(2), width: '100%' }}
+                  />
+                  <Text
+                    style={[
+                      styles.templateName,
+                      { color: theme.colors.textPrimary },
+                    ]}
+                  >
+                    {template.name}
+                  </Text>
+                  <Text style={{ color: theme.colors.textSecondary }}>
+                    {template.category}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </Animated.View>
       </View>
     </Modal>
@@ -170,5 +240,13 @@ const styles = StyleSheet.create({
   },
   templateName: {
     fontSize: 18,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
 });
