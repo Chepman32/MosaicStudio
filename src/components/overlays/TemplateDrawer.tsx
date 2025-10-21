@@ -1,5 +1,14 @@
-import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  Animated,
+  Modal,
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import { SAMPLE_TEMPLATES } from '../../constants/templates';
 import { useProjectStore } from '../../stores/useProjectStore';
@@ -27,10 +36,75 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
     onClose();
   };
 
+  const translateY = useRef(new Animated.Value(0)).current;
+  const isClosingRef = useRef(false);
+
+  useEffect(() => {
+    translateY.stopAnimation();
+    translateY.setValue(0);
+    isClosingRef.current = false;
+  }, [isVisible, translateY]);
+
+  const closeWithAnimation = useCallback(() => {
+    if (isClosingRef.current) return;
+
+    isClosingRef.current = true;
+
+    Animated.timing(translateY, {
+      toValue: 400,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        onClose();
+      } else {
+        isClosingRef.current = false;
+      }
+    });
+  }, [onClose, translateY]);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 4,
+        onPanResponderMove: (_, gesture) => {
+          if (isClosingRef.current) return;
+          if (gesture.dy > 0) {
+            translateY.setValue(gesture.dy);
+          }
+        },
+        onPanResponderRelease: (_, gesture) => {
+          const shouldClose = gesture.dy > 120 || gesture.vy > 1;
+
+          if (shouldClose) {
+            closeWithAnimation();
+            return;
+          }
+
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        },
+        onPanResponderTerminate: (_, gesture) => {
+          if (isClosingRef.current) return;
+          if (gesture.dy > 0) {
+            Animated.spring(translateY, {
+              toValue: 0,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+      }),
+    [closeWithAnimation, translateY],
+  );
+
   return (
     <Modal visible={isVisible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View
+        <Pressable style={styles.backdropPressable} onPress={onClose} />
+        <Animated.View
           style={[
             styles.sheet,
             {
@@ -39,14 +113,18 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
               borderTopLeftRadius: theme.radius.xxl,
               borderTopRightRadius: theme.radius.xxl,
             },
+            { transform: [{ translateY }] },
           ]}
         >
           <View
             style={[
-              styles.handle,
+              styles.handleContainer,
               { marginBottom: theme.spacing(4) },
             ]}
-          />
+            {...panResponder.panHandlers}
+          >
+            <View style={styles.handle} />
+          </View>
           {SAMPLE_TEMPLATES.map((template) => (
             <TouchableOpacity
               key={template.id}
@@ -61,12 +139,7 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
               </Text>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity onPress={onClose}>
-            <Text style={[styles.closeLabel, { color: theme.colors.textSecondary }]}>
-              Close
-            </Text>
-          </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -81,6 +154,13 @@ const styles = StyleSheet.create({
   sheet: {
     maxHeight: '70%',
   },
+  handleContainer: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  backdropPressable: {
+    ...StyleSheet.absoluteFillObject,
+  },
   handle: {
     height: 4,
     width: 36,
@@ -90,8 +170,5 @@ const styles = StyleSheet.create({
   },
   templateName: {
     fontSize: 18,
-  },
-  closeLabel: {
-    textAlign: 'center',
   },
 });

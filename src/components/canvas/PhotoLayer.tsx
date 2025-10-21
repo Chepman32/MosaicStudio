@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useMemo, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, type GestureResponderEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Canvas, Group, Image as SkiaImage, Path, useImage } from '@shopify/react-native-skia';
 import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
-import { createClipForMask, getMaskStroke } from '../../utils/maskUtils';
+import { createClipForMask, getMaskStroke, isPointInsideMask } from '../../utils/maskUtils';
 
 const MIN_DIMENSION = 60;
 const HANDLE_SIZE = 20;
@@ -148,6 +148,20 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
     width: layer.dimensions.width * viewportScale,
     height: layer.dimensions.height * viewportScale,
   }));
+
+  const isPointInMask = useCallback(
+    (x: number, y: number) =>
+      isPointInsideMask(layer.mask, displaySize.width, displaySize.height, x, y),
+    [displaySize.height, displaySize.width, layer.mask],
+  );
+
+  const handleShouldSetResponder = useCallback(
+    (event: GestureResponderEvent) => {
+      const { locationX, locationY } = event.nativeEvent;
+      return isPointInMask(locationX, locationY);
+    },
+    [isPointInMask],
+  );
 
   const updateDisplaySize = useCallback((next: { width: number; height: number }) => {
     setDisplaySize(next);
@@ -458,6 +472,7 @@ export const PhotoLayer: React.FC<PhotoLayerProps> = ({
   return (
     <GestureDetector gesture={composed}>
       <Animated.View
+        onStartShouldSetResponder={handleShouldSetResponder}
         style={[
           styles.photo,
           sizeStyle,

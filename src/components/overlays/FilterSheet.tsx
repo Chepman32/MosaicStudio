@@ -37,12 +37,12 @@ const FILTERS: Filter[] = [
   { id: 'bw', name: 'B&W', category: 'preset', isPremium: false },
   { id: 'sepia', name: 'Sepia', category: 'preset', isPremium: false },
   { id: 'cinematic', name: 'Cinematic', category: 'preset', isPremium: false },
-  { id: 'oil', name: 'Oil Paint', category: 'artistic', isPremium: true },
-  { id: 'watercolor', name: 'Watercolor', category: 'artistic', isPremium: true },
-  { id: 'sketch', name: 'Sketch', category: 'artistic', isPremium: true },
-  { id: 'hdr', name: 'HDR', category: 'advanced', isPremium: true },
-  { id: 'vignette', name: 'Vignette', category: 'advanced', isPremium: true },
-  { id: 'blur', name: 'Blur', category: 'advanced', isPremium: true },
+  { id: 'oil', name: 'Oil Paint', category: 'artistic', isPremium: false },
+  { id: 'watercolor', name: 'Watercolor', category: 'artistic', isPremium: false },
+  { id: 'sketch', name: 'Sketch', category: 'artistic', isPremium: false },
+  { id: 'hdr', name: 'HDR', category: 'advanced', isPremium: false },
+  { id: 'vignette', name: 'Vignette', category: 'advanced', isPremium: false },
+  { id: 'blur', name: 'Blur', category: 'advanced', isPremium: false },
 ];
 
 interface FilterSheetProps {

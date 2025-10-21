@@ -29,13 +29,57 @@ export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
   {
     id: 'grid-diagonal',
     name: 'Diagonal Split',
-    category: 'premium',
-    isPremium: true,
+    category: 'grid',
+    isPremium: false,
     layout: {
       canvas: { width: CANVAS_SIZE, height: CANVAS_SIZE, background: { type: 'color', value: '#FFFFFF' } },
       frames: [
-        { id: 'frame-0', position: { x: 0, y: 0 }, size: { width: 1024, height: 2048 }, rotation: 0, zIndex: 0 },
-        { id: 'frame-1', position: { x: 1024, y: 0 }, size: { width: 1024, height: 2048 }, rotation: 0, zIndex: 1 },
+        {
+          id: 'frame-0',
+          position: { x: 0, y: 0 },
+          size: { width: CANVAS_SIZE, height: CANVAS_SIZE },
+          rotation: 0,
+          zIndex: 0,
+          mask: {
+            type: 'shape',
+            payload: {
+              kind: 'polygon',
+              units: 'normalized',
+              points: [
+                { x: 1, y: 0 },
+                { x: 1, y: 1 },
+                { x: 0, y: 1 },
+              ],
+              strokeWidth: 64,
+              strokeColor: '#FFFFFF',
+              strokeJoin: 'miter',
+              strokeCap: 'butt',
+            },
+          },
+        },
+        {
+          id: 'frame-1',
+          position: { x: 0, y: 0 },
+          size: { width: CANVAS_SIZE, height: CANVAS_SIZE },
+          rotation: 0,
+          zIndex: 1,
+          mask: {
+            type: 'shape',
+            payload: {
+              kind: 'polygon',
+              units: 'normalized',
+              points: [
+                { x: 0, y: 0 },
+                { x: 1, y: 0 },
+                { x: 0, y: 1 },
+              ],
+              strokeWidth: 64,
+              strokeColor: '#FFFFFF',
+              strokeJoin: 'miter',
+              strokeCap: 'butt',
+            },
+          },
+        },
       ],
     },
   },

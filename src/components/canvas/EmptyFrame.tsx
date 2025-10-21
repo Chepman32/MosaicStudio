@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { StyleSheet, Pressable, Text, View } from 'react-native';
+import React, { useMemo, useRef, useCallback } from 'react';
+import { StyleSheet, Pressable, Text, View, type GestureResponderEvent } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -7,7 +7,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Canvas, Path, Rect } from '@shopify/react-native-skia';
 import type { PhotoLayer } from '../../types/projects';
-import { createClipForMask, getMaskCentroid, getMaskStroke } from '../../utils/maskUtils';
+import { createClipForMask, getMaskCentroid, getMaskStroke, isPointInsideMask } from '../../utils/maskUtils';
 
 interface EmptyFrameProps {
   layer: PhotoLayer;
@@ -23,6 +23,16 @@ export const EmptyFrame: React.FC<EmptyFrameProps> = ({
   onPress,
 }) => {
   const scale = useSharedValue(1);
+  const shouldHandlePress = useRef(false);
+
+  const displayWidth = useMemo(
+    () => layer.dimensions.width * viewportScale,
+    [layer.dimensions.width, viewportScale],
+  );
+  const displayHeight = useMemo(
+    () => layer.dimensions.height * viewportScale,
+    [layer.dimensions.height, viewportScale],
+  );
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -34,20 +44,40 @@ export const EmptyFrame: React.FC<EmptyFrameProps> = ({
     zIndex: layer.zIndex,
   }));
 
-  const handlePressIn = () => {
-    scale.value = withSpring(0.95);
-  };
+  const handlePressIn = useCallback(
+    (event: GestureResponderEvent) => {
+      if (!shouldHandlePress.current) {
+        const { locationX, locationY } = event.nativeEvent;
+        shouldHandlePress.current = isPointInsideMask(
+          layer.mask,
+          displayWidth,
+          displayHeight,
+          locationX,
+          locationY,
+        );
+      }
 
-  const handlePressOut = () => {
+      if (shouldHandlePress.current) {
+        scale.value = withSpring(0.95);
+      }
+    },
+    [displayHeight, displayWidth, layer.mask, scale],
+  );
+
+  const handlePressOut = useCallback(() => {
+    if (!shouldHandlePress.current) {
+      return;
+    }
     scale.value = withSpring(1.0);
-  };
+  }, [scale]);
 
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
+    if (!shouldHandlePress.current) {
+      return;
+    }
+    shouldHandlePress.current = false;
     onPress(layer.id);
-  };
-
-  const displayWidth = layer.dimensions.width * viewportScale;
-  const displayHeight = layer.dimensions.height * viewportScale;
+  }, [layer.id, onPress]);
 
   const clipPath = useMemo(
     () => createClipForMask(layer.mask, displayWidth, displayHeight),
@@ -77,8 +107,25 @@ export const EmptyFrame: React.FC<EmptyFrameProps> = ({
     };
   }, [displayHeight, displayWidth, layer.mask]);
 
+  const handleShouldSetResponder = useCallback(
+    (event: GestureResponderEvent) => {
+      const { locationX, locationY } = event.nativeEvent;
+      const inside = isPointInsideMask(
+        layer.mask,
+        displayWidth,
+        displayHeight,
+        locationX,
+        locationY,
+      );
+      shouldHandlePress.current = inside;
+      return inside;
+    },
+    [displayWidth, displayHeight, layer.mask],
+  );
+
   return (
     <AnimatedPressable
+      onStartShouldSetResponder={handleShouldSetResponder}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={handlePress}

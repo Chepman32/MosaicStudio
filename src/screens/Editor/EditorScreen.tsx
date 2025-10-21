@@ -136,11 +136,21 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
 
   const handleLayerDelete = useCallback(() => {
     if (project && selectedLayerId) {
-      deleteLayer(project.id, selectedLayerId);
+      const target = project.layers.find((layer) => layer.id === selectedLayerId);
+
+      if (target && 'sourceUri' in target) {
+        updateLayer(project.id, selectedLayerId, {
+          sourceUri: '',
+          filters: [],
+          crop: null,
+        });
+      } else {
+        deleteLayer(project.id, selectedLayerId);
+      }
       setSelectedLayerId(null);
       setSwapSourceLayerId(null);
     }
-  }, [project, selectedLayerId, deleteLayer]);
+  }, [deleteLayer, project, selectedLayerId, updateLayer]);
 
   const handleBack = useCallback(() => {
     navigation.navigate({ route: 'home' });

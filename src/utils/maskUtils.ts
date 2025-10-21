@@ -2,7 +2,7 @@ import { Skia, type SkPath } from '@shopify/react-native-skia';
 
 import type { MaskData } from '../types/projects';
 
-interface PolygonPoint {
+export interface PolygonPoint {
   x: number;
   y: number;
 }
@@ -245,4 +245,57 @@ export const getMaskCentroid = (
   }
 
   return polygonCentroid(points);
+};
+
+export const getMaskPolygon = (
+  mask: MaskData | null | undefined,
+  width: number,
+  height: number,
+): PolygonPoint[] | null => {
+  if (!mask || mask.type !== 'shape') {
+    return null;
+  }
+
+  const payload = (mask.payload ?? {}) as ShapeMaskPayload;
+  return resolveShapePoints(payload, width, height);
+};
+
+const pointInPolygon = (point: PolygonPoint, polygon: PolygonPoint[]): boolean => {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const xi = polygon[i].x;
+    const yi = polygon[i].y;
+    const xj = polygon[j].x;
+    const yj = polygon[j].y;
+
+    const intersect =
+      yi > point.y !== yj > point.y &&
+      point.x < ((xj - xi) * (point.y - yi)) / (yj - yi + 0.0000001) + xi;
+
+    if (intersect) inside = !inside;
+  }
+  return inside;
+};
+
+export const isPointInsideMask = (
+  mask: MaskData | null | undefined,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+): boolean => {
+  if (x < 0 || y < 0 || x > width || y > height) {
+    return false;
+  }
+
+  if (!mask || mask.type !== 'shape') {
+    return true;
+  }
+
+  const polygon = getMaskPolygon(mask, width, height);
+  if (!polygon) {
+    return true;
+  }
+
+  return pointInPolygon({ x, y }, polygon);
 };
