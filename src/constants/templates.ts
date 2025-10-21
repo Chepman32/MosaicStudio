@@ -138,12 +138,12 @@ export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
     category: 'grid',
     isPremium: false,
     layout: {
-      canvas: { width: CANVAS_SIZE, height: CANVAS_SIZE, background: { type: 'color', value: '#FFFFFF' } },
+      canvas: { width: 1440, height: 2560, background: { type: 'color', value: '#FFFFFF' } },
       frames: [
         {
           id: 'frame-0',
-          position: { x: 96, y: 96 },
-          size: { width: 1336.32, height: 965.12 },
+          position: { x: 0, y: 0 },
+          size: { width: 1036.8, height: 2560 },
           rotation: 0,
           zIndex: 0,
           mask: {
@@ -154,9 +154,10 @@ export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
               points: [
                 { x: 0, y: 0 },
                 { x: 1, y: 0 },
-                { x: 0.763888888889, y: 1 },
+                { x: 0.763889, y: 0.52 },
+                { x: 0, y: 1 },
               ],
-              strokeWidth: 72,
+              strokeWidth: 64,
               strokeColor: '#FFFFFF',
               strokeJoin: 'miter',
               strokeCap: 'butt',
@@ -165,8 +166,8 @@ export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
         },
         {
           id: 'frame-1',
-          position: { x: 1116.8, y: 96 },
-          size: { width: 835.2, height: 965.12 },
+          position: { x: 792, y: 0 },
+          size: { width: 648, height: 2560 },
           rotation: 0,
           zIndex: 1,
           mask: {
@@ -175,11 +176,12 @@ export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
               kind: 'polygon',
               units: 'normalized',
               points: [
-                { x: 0.377777777778, y: 0 },
+                { x: 0.377778, y: 0 },
                 { x: 1, y: 0 },
-                { x: 0, y: 1 },
+                { x: 1, y: 1 },
+                { x: 0, y: 0.52 },
               ],
-              strokeWidth: 72,
+              strokeWidth: 64,
               strokeColor: '#FFFFFF',
               strokeJoin: 'miter',
               strokeCap: 'butt',
@@ -188,8 +190,8 @@ export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
         },
         {
           id: 'frame-2',
-          position: { x: 1116.8, y: 96 },
-          size: { width: 835.2, height: 1856 },
+          position: { x: 489.6, y: 0 },
+          size: { width: 547.2, height: 2560 },
           rotation: 0,
           zIndex: 2,
           mask: {
@@ -199,10 +201,10 @@ export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
               units: 'normalized',
               points: [
                 { x: 1, y: 0 },
-                { x: 1, y: 1 },
-                { x: 0, y: 0.52 },
+                { x: 0.552632, y: 0.52 },
+                { x: 0, y: 1 },
               ],
-              strokeWidth: 72,
+              strokeWidth: 64,
               strokeColor: '#FFFFFF',
               strokeJoin: 'miter',
               strokeCap: 'butt',
@@ -211,8 +213,8 @@ export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
         },
         {
           id: 'frame-3',
-          position: { x: 727.04, y: 1061.12 },
-          size: { width: 1224.96, height: 890.88 },
+          position: { x: 489.6, y: 1331.2 },
+          size: { width: 950.4, height: 1228.8 },
           rotation: 0,
           zIndex: 3,
           mask: {
@@ -221,11 +223,11 @@ export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
               kind: 'polygon',
               units: 'normalized',
               points: [
+                { x: 0.318182, y: 0 },
                 { x: 1, y: 1 },
                 { x: 0, y: 1 },
-                { x: 0.318181818182, y: 0 },
               ],
-              strokeWidth: 72,
+              strokeWidth: 64,
               strokeColor: '#FFFFFF',
               strokeJoin: 'miter',
               strokeCap: 'butt',
@@ -234,8 +236,8 @@ export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
         },
         {
           id: 'frame-4',
-          position: { x: 96, y: 1061.12 },
-          size: { width: 1020.8, height: 890.88 },
+          position: { x: 0, y: 1331.2 },
+          size: { width: 792, height: 1228.8 },
           rotation: 0,
           zIndex: 4,
           mask: {
@@ -244,34 +246,11 @@ export const SAMPLE_TEMPLATES: TemplateDefinition[] = [
               kind: 'polygon',
               units: 'normalized',
               points: [
-                { x: 0.618181818182, y: 1 },
                 { x: 0, y: 1 },
+                { x: 0.618182, y: 1 },
                 { x: 1, y: 0 },
               ],
-              strokeWidth: 72,
-              strokeColor: '#FFFFFF',
-              strokeJoin: 'miter',
-              strokeCap: 'butt',
-            },
-          },
-        },
-        {
-          id: 'frame-5',
-          position: { x: 96, y: 96 },
-          size: { width: 1020.8, height: 1856 },
-          rotation: 0,
-          zIndex: 5,
-          mask: {
-            type: 'shape',
-            payload: {
-              kind: 'polygon',
-              units: 'normalized',
-              points: [
-                { x: 0, y: 1 },
-                { x: 0, y: 0 },
-                { x: 1, y: 0.52 },
-              ],
-              strokeWidth: 72,
+              strokeWidth: 64,
               strokeColor: '#FFFFFF',
               strokeJoin: 'miter',
               strokeCap: 'butt',
