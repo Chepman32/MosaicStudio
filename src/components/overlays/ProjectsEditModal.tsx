@@ -19,6 +19,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '../../theme/ThemeContext';
 import type { CollageProject } from '../../types/projects';
+import { ProjectPreview } from '../projects/ProjectPreview';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MODAL_HEIGHT = SCREEN_HEIGHT * 0.8;
@@ -86,6 +87,17 @@ export const ProjectsEditModal: React.FC<ProjectsEditModalProps> = ({
         },
       ]}
     >
+      <ProjectPreview
+        project={item}
+        borderRadius={theme.radius.m}
+        showPlaceholders={false}
+        style={[
+          styles.preview,
+          {
+            borderRadius: theme.radius.m,
+          },
+        ]}
+      />
       <View style={styles.projectInfo}>
         <Text style={[styles.projectName, { color: theme.colors.textPrimary }]}>
           {item.name}
@@ -215,10 +227,14 @@ const styles = StyleSheet.create({
   projectItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
+  },
+  preview: {
+    width: 104,
+    marginRight: 16,
   },
   projectInfo: {
     flex: 1,
@@ -235,6 +251,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
+    marginLeft: 16,
   },
   deleteText: {
     fontSize: 15,

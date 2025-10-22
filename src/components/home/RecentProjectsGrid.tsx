@@ -5,6 +5,7 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useNavigation } from '../../navigation/NavigationContext';
 import { useTheme } from '../../theme/ThemeContext';
 import type { CollageProject } from '../../types/projects';
+import { ProjectPreview } from '../projects/ProjectPreview';
 
 interface RecentProjectsGridProps {
   projects: CollageProject[];
@@ -34,7 +35,9 @@ export const RecentProjectsGrid: React.FC<RecentProjectsGridProps> = ({
         accessibilityRole="button"
         style={{ padding: theme.spacing(4) }}
       >
-        <View
+        <ProjectPreview
+          project={item}
+          borderRadius={theme.radius.l}
           style={[
             styles.thumbnail,
             {
@@ -42,9 +45,7 @@ export const RecentProjectsGrid: React.FC<RecentProjectsGridProps> = ({
               marginBottom: theme.spacing(3),
             },
           ]}
-        >
-          <Text style={{ color: theme.colors.textSecondary }}>Thumbnail</Text>
-        </View>
+        />
         <Text
           style={[
             styles.projectName,
@@ -105,10 +106,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   thumbnail: {
-    height: 160,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: '100%',
   },
   projectName: {
     fontSize: 18,
