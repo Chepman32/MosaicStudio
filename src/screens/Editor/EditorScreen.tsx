@@ -21,8 +21,8 @@ import { EmptyFrame } from '../../components/canvas/EmptyFrame';
 import { BackgroundPanel } from '../../components/overlays/BackgroundPanel';
 import { LayersPanel } from '../../components/overlays/LayersPanel';
 import { FilterSheet } from '../../components/overlays/FilterSheet';
-import { CropTool } from '../../components/editor/CropTool';
 import { usePhotoPicker } from '../../components/editor/PhotoPicker';
+import { openNativeCrop } from '../../services/media/NativeCropService';
 import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
 
 // Keep resizing logic consistent with PhotoLayer
@@ -66,14 +66,11 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
   const backgroundPanelOpen = useUIStore((state) => state.backgroundPanelOpen);
   const layersPanelOpen = useUIStore((state) => state.layersPanelOpen);
   const filterSheetLayerId = useUIStore((state) => state.filterSheetLayerId);
-  const cropToolLayerId = useUIStore((state) => state.cropToolLayerId);
   const openBackgroundPanel = useUIStore((state) => state.openBackgroundPanel);
   const closeBackgroundPanel = useUIStore((state) => state.closeBackgroundPanel);
   const closeLayersPanel = useUIStore((state) => state.closeLayersPanel);
   const openFilterSheet = useUIStore((state) => state.openFilterSheet);
   const closeFilterSheet = useUIStore((state) => state.closeFilterSheet);
-  const openCropTool = useUIStore((state) => state.openCropTool);
-  const closeCropTool = useUIStore((state) => state.closeCropTool);
 
   const { pickPhotos } = usePhotoPicker();
 
@@ -256,11 +253,27 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
     }
   }, [selectedLayerId, openFilterSheet]);
 
-  const handleCrop = useCallback(() => {
-    if (selectedLayerId) {
-      openCropTool(selectedLayerId);
+  const handleCrop = useCallback(async () => {
+    if (!selectedLayerId || !project) return;
+
+    const targetLayer = project.layers.find(
+      (item): item is PhotoLayerType =>
+        'sourceUri' in item && item.id === selectedLayerId
+    );
+
+    if (!targetLayer || !targetLayer.sourceUri) return;
+
+    const cropData = await openNativeCrop(
+      targetLayer.sourceUri,
+      targetLayer.crop
+    );
+
+    if (cropData) {
+      updateLayer(project.id, selectedLayerId, {
+        crop: cropData,
+      });
     }
-  }, [selectedLayerId, openCropTool]);
+  }, [selectedLayerId, project, updateLayer]);
 
   const handleSwap = useCallback(() => {
     if (!selectedLayerId) {
@@ -644,25 +657,6 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
     [project, filterSheetLayerId, updateLayer]
   );
 
-  const handleApplyCrop = useCallback(
-    (crop: { x: number; y: number; width: number; height: number }) => {
-      if (project && cropToolLayerId) {
-        const targetLayer = project.layers.find(
-          (item): item is PhotoLayerType =>
-            'sourceUri' in item && item.id === cropToolLayerId
-        );
-
-        updateLayer(project.id, cropToolLayerId, {
-          crop: {
-            ...crop,
-            rotation: targetLayer?.crop?.rotation ?? 0,
-          },
-        });
-      }
-    },
-    [project, cropToolLayerId, updateLayer]
-  );
-
   const handleCanvasPress = useCallback(() => {
     setSelectedLayerId(null);
     setSwapSourceLayerId(null);
@@ -685,13 +679,6 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
     ? project.layers.find(
         (layer): layer is PhotoLayerType =>
           'sourceUri' in layer && layer.id === filterSheetLayerId
-      )
-    : undefined;
-
-  const cropLayer = cropToolLayerId
-    ? project.layers.find(
-        (layer): layer is PhotoLayerType =>
-          'sourceUri' in layer && layer.id === cropToolLayerId
       )
     : undefined;
 
@@ -816,16 +803,6 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
           onApplyFilter={handleApplyFilter}
           photoUri={filterLayer?.sourceUri || ''}
           isPremium={false}
-        />
-      )}
-
-      {cropToolLayerId && (
-        <CropTool
-          isVisible={!!cropToolLayerId}
-          onClose={closeCropTool}
-          photoUri={cropLayer?.sourceUri || ''}
-          currentCrop={cropLayer?.crop}
-          onApplyCrop={handleApplyCrop}
         />
       )}
     </View>

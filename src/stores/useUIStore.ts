@@ -18,7 +18,6 @@ interface UIStoreState {
   backgroundPanelOpen: boolean;
   layersPanelOpen: boolean;
   filterSheetLayerId: string | null;
-  cropToolLayerId: string | null;
   setTemplateDrawer: (state: Partial<TemplateDrawerState>) => void;
   openExportModal: (projectId: string) => void;
   closeExportModal: () => void;
@@ -32,8 +31,6 @@ interface UIStoreState {
   closeLayersPanel: () => void;
   openFilterSheet: (layerId: string) => void;
   closeFilterSheet: () => void;
-  openCropTool: (layerId: string) => void;
-  closeCropTool: () => void;
 }
 
 export const useUIStore = create<UIStoreState>((set) => ({
@@ -44,7 +41,6 @@ export const useUIStore = create<UIStoreState>((set) => ({
   backgroundPanelOpen: false,
   layersPanelOpen: false,
   filterSheetLayerId: null,
-  cropToolLayerId: null,
   setTemplateDrawer: (state) =>
     set((prev) => ({
       templateDrawer: { ...prev.templateDrawer, ...state },
@@ -61,6 +57,4 @@ export const useUIStore = create<UIStoreState>((set) => ({
   closeLayersPanel: () => set({ layersPanelOpen: false }),
   openFilterSheet: (layerId) => set({ filterSheetLayerId: layerId }),
   closeFilterSheet: () => set({ filterSheetLayerId: null }),
-  openCropTool: (layerId) => set({ cropToolLayerId: layerId }),
-  closeCropTool: () => set({ cropToolLayerId: null }),
 }));

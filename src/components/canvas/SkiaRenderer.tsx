@@ -1,5 +1,5 @@
 import React from 'react';
-import { Canvas, Group, Image, Path, useImage, rect, Skia } from '@shopify/react-native-skia';
+import { Canvas, Group, Image, Path, Rect, Skia, useImage } from '@shopify/react-native-skia';
 import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
 import { createClipForMask, getMaskStroke } from '../../utils/maskUtils';
 
@@ -8,6 +8,7 @@ interface SkiaRendererProps {
   height: number;
   backgroundColor: string;
   layers: PhotoLayerType[];
+  backgroundImageUri?: string | null;
 }
 
 export const SkiaRenderer: React.FC<SkiaRendererProps> = ({
@@ -15,21 +16,34 @@ export const SkiaRenderer: React.FC<SkiaRendererProps> = ({
   height,
   backgroundColor,
   layers,
+  backgroundImageUri,
 }) => {
   const sortedLayers = React.useMemo(() => {
     return [...layers].sort((a, b) => a.zIndex - b.zIndex);
   }, [layers]);
 
+  const backgroundImage = useImage(backgroundImageUri ?? null);
+
   return (
-    <Canvas style={{ width, height }}>
-      {/* Background */}
-      <rect
+    <Canvas style={{ width, height, position: 'absolute', top: 0, left: 0 }}>
+      <Rect
         x={0}
         y={0}
         width={width}
         height={height}
         color={backgroundColor}
       />
+
+      {backgroundImage ? (
+        <Image
+          image={backgroundImage}
+          x={0}
+          y={0}
+          width={width}
+          height={height}
+          fit="cover"
+        />
+      ) : null}
 
       {/* Render each layer */}
       {sortedLayers.map((layer) => (
@@ -58,6 +72,31 @@ const SkiaPhotoLayer: React.FC<SkiaPhotoLayerProps> = ({ layer }) => {
   );
   const stroke = React.useMemo(() => getMaskStroke(layer.mask, 1), [layer.mask]);
 
+  // Handle cropping like PhotoLayerImage does
+  const { drawWidth, drawHeight, offsetX, offsetY } = React.useMemo(() => {
+    if (
+      !layer.crop ||
+      !Number.isFinite(layer.crop.width) ||
+      !Number.isFinite(layer.crop.height) ||
+      layer.crop.width <= 0 ||
+      layer.crop.height <= 0
+    ) {
+      return {
+        drawWidth: width,
+        drawHeight: height,
+        offsetX: 0,
+        offsetY: 0,
+      };
+    }
+
+    const drawWidth = width / layer.crop.width;
+    const drawHeight = height / layer.crop.height;
+    const offsetX = -(layer.crop.x * width) / layer.crop.width;
+    const offsetY = -(layer.crop.y * height) / layer.crop.height;
+
+    return { drawWidth, drawHeight, offsetX, offsetY };
+  }, [layer.crop, width, height]);
+
   // Apply filters if any
   const paint = React.useMemo(() => {
     if (!layer.filters || layer.filters.length === 0) {
@@ -84,10 +123,10 @@ const SkiaPhotoLayer: React.FC<SkiaPhotoLayerProps> = ({ layer }) => {
     >
       <Image
         image={image}
-        x={0}
-        y={0}
-        width={width}
-        height={height}
+        x={offsetX}
+        y={offsetY}
+        width={drawWidth}
+        height={drawHeight}
         fit="cover"
         paint={paint}
       />

@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Image,
   LayoutChangeEvent,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import type {
   PhotoLayer,
   TextLayer,
 } from '../../types/projects';
+import { SkiaRenderer } from '../canvas/SkiaRenderer';
 
 const isPhotoLayer = (layer: Layer): layer is PhotoLayer =>
   'sourceUri' in layer;
@@ -69,29 +69,79 @@ export const ProjectPreview: React.FC<ProjectPreviewProps> = ({
     [project.layers],
   );
 
-  const backgroundColor = useMemo(() => {
+  const { backgroundColor, backgroundImageUri } = useMemo(() => {
     if (!project.canvas.background) {
-      return 'rgba(255,255,255,0.08)';
+      return {
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        backgroundImageUri: null as string | null,
+      };
     }
     if (project.canvas.background.type === 'color') {
-      return project.canvas.background.value;
-    }
-    return 'rgba(255,255,255,0.08)';
-  }, [project.canvas.background]);
-
-  const backgroundImage = useMemo(() => {
-    if (!project.canvas.background) {
-      return undefined;
+      return {
+        backgroundColor: project.canvas.background.value,
+        backgroundImageUri: null as string | null,
+      };
     }
     if (
       project.canvas.background.type === 'photo' &&
       typeof project.canvas.background.value === 'string' &&
       project.canvas.background.value.length > 0
     ) {
-      return project.canvas.background.value;
+      return {
+        backgroundColor: '#000000',
+        backgroundImageUri: project.canvas.background.value,
+      };
     }
-    return undefined;
+    return {
+      backgroundColor: 'rgba(255,255,255,0.08)',
+      backgroundImageUri: null as string | null,
+    };
   }, [project.canvas.background]);
+
+  const scaledPhotoLayers = useMemo(() => {
+    return sortedLayers.filter(isPhotoLayer).map((layer) => ({
+      ...layer,
+      transform: {
+        ...layer.transform,
+        x: layer.transform.x * scale,
+        y: layer.transform.y * scale,
+      },
+      dimensions: {
+        width: layer.dimensions.width * scale,
+        height: layer.dimensions.height * scale,
+      },
+    }));
+  }, [scale, sortedLayers]);
+
+  const filledPhotoLayers = useMemo(
+    () => scaledPhotoLayers.filter((layer) => layer.sourceUri.length > 0),
+    [scaledPhotoLayers],
+  );
+
+  const placeholderLayers = useMemo(
+    () =>
+      showPlaceholders
+        ? scaledPhotoLayers.filter((layer) => layer.sourceUri.length === 0)
+        : [],
+    [scaledPhotoLayers, showPlaceholders],
+  );
+
+  const textLayers = useMemo(() => {
+    return sortedLayers
+      .filter(isTextLayer)
+      .map((layer) => ({
+        id: layer.id,
+        text: layer.text,
+        color: layer.color,
+        fontSize: layer.fontSize * scale * layer.transform.scale,
+        zIndex: layer.zIndex,
+        transform: [
+          { translateX: layer.transform.x * scale },
+          { translateY: layer.transform.y * scale },
+          { rotate: `${layer.transform.rotation}rad` },
+        ],
+      }));
+  }, [scale, sortedLayers]);
 
   const hasMeasured = size.width > 0 && size.height > 0;
 
@@ -105,7 +155,6 @@ export const ProjectPreview: React.FC<ProjectPreviewProps> = ({
         },
         style,
       ]}
-      onLayout={handleLayout}
     >
       <View
         style={[
@@ -115,86 +164,51 @@ export const ProjectPreview: React.FC<ProjectPreviewProps> = ({
             aspectRatio,
           },
         ]}
+        onLayout={handleLayout}
       >
-        {backgroundImage ? (
-          <Image
-            source={{ uri: backgroundImage }}
-            resizeMode="cover"
-            style={[StyleSheet.absoluteFill, { borderRadius }]}
-          />
-        ) : null}
         <View style={styles.layersContainer} pointerEvents="none">
-          {!hasMeasured
-            ? null
-            : sortedLayers.map((layer) => {
-            if ('hidden' in layer && layer.hidden) {
-              return null;
-            }
+          {hasMeasured ? (
+            <>
+              <SkiaRenderer
+                width={size.width}
+                height={size.height}
+                backgroundColor={backgroundColor}
+                layers={filledPhotoLayers}
+                backgroundImageUri={backgroundImageUri}
+              />
+              {placeholderLayers.map((layer) => {
+                const width = layer.dimensions.width;
+                const height = layer.dimensions.height;
+                const layerBorderRadius = Math.max(borderRadius * 0.5, 6);
+                const transforms = [
+                  { translateX: layer.transform.x + width / 2 },
+                  { translateY: layer.transform.y + height / 2 },
+                  { scale: layer.transform.scale },
+                  { rotate: `${layer.transform.rotation}rad` },
+                  { translateX: -width / 2 },
+                  { translateY: -height / 2 },
+                ];
 
-            if (isPhotoLayer(layer)) {
-              const width = layer.dimensions.width * scale;
-              const height = layer.dimensions.height * scale;
-              const layerBorderRadius = Math.max(borderRadius * 0.5, 6);
-              const transforms = [
-                { translateX: layer.transform.x * scale },
-                { translateY: layer.transform.y * scale },
-                { scale: layer.transform.scale },
-                { rotate: `${layer.transform.rotation}rad` },
-              ];
-
-              const hasImage = layer.sourceUri.length > 0;
-
-              return (
-                <View
-                  key={layer.id}
-                  style={[
-                    styles.photoLayer,
-                    {
-                      width,
-                      height,
-                      opacity: layer.opacity,
-                      zIndex: layer.zIndex,
-                      transform: transforms,
-                      borderRadius: layerBorderRadius,
-                    },
-                  ]}
-                >
-                  {hasImage ? (
-                    <Image
-                      source={{ uri: layer.sourceUri }}
-                      resizeMode="cover"
-                      style={[
-                        styles.photo,
-                        {
-                          borderRadius: layerBorderRadius,
-                        },
-                      ]}
-                    />
-                  ) : (
-                    showPlaceholders && (
-                      <View
-                        style={[
-                          styles.placeholder,
-                          { borderRadius: layerBorderRadius },
-                        ]}
-                      >
-                        <Text style={styles.placeholderText}>Add Photo</Text>
-                      </View>
-                    )
-                  )}
-                </View>
-              );
-            }
-
-            if (isTextLayer(layer)) {
-              const transforms = [
-                { translateX: layer.transform.x * scale },
-                { translateY: layer.transform.y * scale },
-                { scale: layer.transform.scale },
-                { rotate: `${layer.transform.rotation}rad` },
-              ];
-
-              return (
+                return (
+                  <View
+                    key={layer.id}
+                    style={[
+                      styles.placeholder,
+                      {
+                        width,
+                        height,
+                        borderRadius: layerBorderRadius,
+                        opacity: layer.opacity,
+                        zIndex: layer.zIndex,
+                        transform: transforms,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.placeholderText}>Add Photo</Text>
+                  </View>
+                );
+              })}
+              {textLayers.map((layer) => (
                 <Text
                   key={layer.id}
                   numberOfLines={2}
@@ -202,19 +216,17 @@ export const ProjectPreview: React.FC<ProjectPreviewProps> = ({
                     styles.textLayer,
                     {
                       color: layer.color,
-                      fontSize: layer.fontSize * scale,
+                      fontSize: layer.fontSize,
                       zIndex: layer.zIndex,
-                      transform: transforms,
+                      transform: layer.transform,
                     },
                   ]}
                 >
                   {layer.text}
                 </Text>
-              );
-            }
-
-            return null;
-          })}
+              ))}
+            </>
+          ) : null}
         </View>
       </View>
     </View>
@@ -230,24 +242,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   layersContainer: {
-    flex: 1,
+    width: '100%',
+    height: '100%',
     position: 'relative',
     overflow: 'hidden',
   },
-  photoLayer: {
-    position: 'absolute',
-    overflow: 'hidden',
-    borderRadius: 12,
-  },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
   placeholder: {
-    flex: 1,
     backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'absolute',
   },
   placeholderText: {
     fontSize: 10,

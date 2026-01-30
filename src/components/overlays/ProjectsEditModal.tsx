@@ -234,6 +234,7 @@ const styles = StyleSheet.create({
   },
   preview: {
     width: 104,
+    height: 104,
     marginRight: 16,
   },
   projectInfo: {
