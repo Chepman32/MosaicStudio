@@ -23,7 +23,7 @@ import { LayersPanel } from '../../components/overlays/LayersPanel';
 import { FilterSheet } from '../../components/overlays/FilterSheet';
 import { usePhotoPicker } from '../../components/editor/PhotoPicker';
 import { openNativeCrop } from '../../services/media/NativeCropService';
-import type { PhotoLayer as PhotoLayerType } from '../../types/projects';
+import type { PhotoLayer as PhotoLayerType, Layer } from '../../types/projects';
 
 // Keep resizing logic consistent with PhotoLayer
 const MIN_DIMENSION = 60;
@@ -369,6 +369,34 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
     [project, duplicateLayer]
   );
 
+  // Helper to find all images that are horizontally adjacent (side by side in a row)
+  const findRowSiblings = useCallback(
+    (currentLayer: PhotoLayerType, excludeLayerId: string): PhotoLayerType[] => {
+      if (!project) return [];
+      const EDGE_THRESHOLD = 20;
+
+      const layerRight = currentLayer.transform.x + currentLayer.dimensions.width;
+      const layerBottom = currentLayer.transform.y + currentLayer.dimensions.height;
+
+      return project.layers.filter((item): item is PhotoLayerType => {
+        if (!('sourceUri' in item) || item.id === excludeLayerId) return false;
+
+        const itemRight = item.transform.x + item.dimensions.width;
+        const itemBottom = item.transform.y + item.dimensions.height;
+
+        // Check vertical overlap (they share some vertical space)
+        const overlapVertical = !(currentLayer.transform.y >= itemBottom || layerBottom <= item.transform.y);
+
+        // Check if horizontally adjacent (touching left or right edges)
+        const adjacentOnRight = Math.abs(layerRight - item.transform.x) < EDGE_THRESHOLD;
+        const adjacentOnLeft = Math.abs(currentLayer.transform.x - itemRight) < EDGE_THRESHOLD;
+
+        return overlapVertical && (adjacentOnRight || adjacentOnLeft);
+      });
+    },
+    [project]
+  );
+
   const handleLayerResizeUpdate = useCallback(
     (
       layerId: string,
@@ -388,6 +416,21 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
       }
 
       console.log('handleLayerResizeUpdate called', { layerId, edge, size });
+
+      // For top/bottom edges, sync all images in the same row to the same height
+      if (edge === 'top' || edge === 'bottom') {
+        const rowSiblings = findRowSiblings(layer, layerId);
+        console.log('Row sync - found siblings:', rowSiblings.length, 'newHeight:', size.height, 'newY:', size.y);
+
+        rowSiblings.forEach((sibling) => {
+          if (size.height > MIN_DIMENSION) {
+            updateLayer(project.id, sibling.id, {
+              dimensions: { width: sibling.dimensions.width, height: size.height },
+              transform: { ...sibling.transform, y: size.y },
+            });
+          }
+        });
+      }
 
       const EDGE_THRESHOLD = 20;
 
@@ -502,7 +545,7 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
         }
       }
     },
-    [project, updateLayer]
+    [project, updateLayer, findRowSiblings]
   );
 
   const handleLayerResize = useCallback(
@@ -571,6 +614,20 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
           y: size.y,
         },
       });
+
+      // For top/bottom edges, sync all images in the same row to the same height
+      if (edge === 'top' || edge === 'bottom') {
+        const rowSiblings = findRowSiblings(layer, layerId);
+
+        rowSiblings.forEach((sibling) => {
+          if (size.height > MIN_DIMENSION) {
+            updateLayer(project.id, sibling.id, {
+              dimensions: { width: sibling.dimensions.width, height: size.height },
+              transform: { ...sibling.transform, y: size.y },
+            });
+          }
+        });
+      }
 
       // Update adjacent layer if found to fill the gap
       if (adjacentLayer) {
@@ -643,7 +700,7 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({
         }
       }
     },
-    [project, updateLayer]
+    [project, updateLayer, findRowSiblings]
   );
 
   const handleApplyFilter = useCallback(
